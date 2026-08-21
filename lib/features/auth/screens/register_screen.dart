@@ -9,9 +9,11 @@ import 'package:batalat_app/core/theme/app_colors.dart';
 import 'package:batalat_app/core/theme/app_text_styles.dart';
 import 'package:batalat_app/core/constants/app_constants.dart';
 import 'package:batalat_app/core/router/app_router.dart';
+import 'package:batalat_app/core/network/api_client.dart';
 import 'package:batalat_app/shared/widgets/batalat_logo.dart';
 import 'package:batalat_app/shared/widgets/rose_pattern_background.dart';
 import '../providers/auth_provider.dart';
+import '../utils/phone_utils.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -44,12 +46,15 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final phone = '+218${_phoneController.text.trim()}';
+      final phone = toLibyanE164(_phoneController.text);
+      if (phone == null) {
+        throw ApiException('رقم الهاتف غير صحيح');
+      }
       await ref.read(authProvider.notifier).register(
-        phone: phone,
-        fullName: _nameController.text.trim(),
-        password: _passwordController.text,
-      );
+            phone: phone,
+            fullName: _nameController.text.trim(),
+            password: _passwordController.text,
+          );
       if (mounted) {
         context.push(AppRoutes.otp, extra: {
           'phone': phone,
@@ -59,8 +64,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       }
     } catch (e) {
       if (mounted) {
+        final msg = e is ApiException
+            ? e.message
+            : e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
+          SnackBar(content: Text(msg)),
         );
       }
     } finally {
@@ -164,11 +172,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       ),
                     ),
                   ),
-                  validator: (v) {
-                    if (v == null || v.isEmpty) return 'أدخل رقم الهاتف';
-                    if (v.length < 9) return 'رقم الهاتف غير صحيح';
-                    return null;
-                  },
+                  validator: validateLibyanPhoneInput,
                 ).animate(delay: 350.ms).fadeIn().slideY(begin: 0.2, end: 0),
 
                 const SizedBox(height: 20),

@@ -4,7 +4,7 @@ class AppConstants {
 
   // API
   // Android emulator: use 10.0.2.2 — physical device / host: use LAN IP
-  static const String baseUrl = 'https://batalat.ly/api/v1';
+  static const String baseUrl = 'https://app.alrgabe.com.ly/api/v1';
 
   /// Origin without `/api/v1` — used for absolute media URLs.
   static String get apiOrigin {

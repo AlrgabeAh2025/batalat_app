@@ -8,6 +8,7 @@ import 'package:pinput/pinput.dart';
 import 'package:batalat_app/core/theme/app_colors.dart';
 import 'package:batalat_app/core/theme/app_text_styles.dart';
 import 'package:batalat_app/core/constants/app_constants.dart';
+import 'package:batalat_app/core/network/api_client.dart';
 import 'package:batalat_app/core/router/app_router.dart';
 import '../providers/auth_provider.dart';
 
@@ -30,6 +31,7 @@ class OTPScreen extends ConsumerStatefulWidget {
 class _OTPScreenState extends ConsumerState<OTPScreen> {
   final _otpController = TextEditingController();
   bool _isLoading = false;
+  bool _isResending = false;
   bool _canResend = false;
   int _countdown = 60;
 
@@ -37,6 +39,12 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
   void initState() {
     super.initState();
     _startCountdown();
+  }
+
+  @override
+  void dispose() {
+    _otpController.dispose();
+    super.dispose();
   }
 
   void _startCountdown() {
@@ -56,21 +64,35 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
     });
   }
 
+  String _errorText(Object e) {
+    if (e is ApiException) return e.message;
+    return e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
+  }
+
   Future<void> _verifyOTP() async {
     if (_otpController.text.length < 6) return;
     setState(() => _isLoading = true);
 
     try {
+      if (widget.purpose == 'reset') {
+        if (!mounted) return;
+        context.push(AppRoutes.resetPassword, extra: {
+          'phone': widget.phone,
+          'code': _otpController.text,
+        });
+        return;
+      }
+
       await ref.read(authProvider.notifier).verifyOTP(
-        phone: widget.phone,
-        code: _otpController.text,
-        purpose: widget.purpose,
-      );
+            phone: widget.phone,
+            code: _otpController.text,
+            purpose: widget.purpose,
+          );
       if (mounted) context.go(AppRoutes.home);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
+          SnackBar(content: Text(_errorText(e))),
         );
         _otpController.clear();
       }
@@ -79,9 +101,32 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
     }
   }
 
+  Future<void> _resendOTP() async {
+    if (_isResending) return;
+    setState(() => _isResending = true);
+    try {
+      await ref.read(authProvider.notifier).resendOTP(
+            phone: widget.phone,
+            purpose: widget.purpose,
+          );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تم إعادة إرسال رمز التحقق')),
+      );
+      _startCountdown();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_errorText(e))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isResending = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Pinput Theme
     final pinTheme = PinTheme(
       width: 52,
       height: 60,
@@ -117,12 +162,10 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const SizedBox(height: 30),
-
-              // Icon
               Container(
                 width: 80,
                 height: 80,
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   color: AppColors.primarySurface,
                   shape: BoxShape.circle,
                 ),
@@ -131,28 +174,20 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
                   size: 40,
                   color: AppColors.primary,
                 ),
-              )
-              .animate().scale(duration: 500.ms, curve: Curves.easeOutBack),
-
+              ).animate().scale(duration: 500.ms, curve: Curves.easeOutBack),
               const SizedBox(height: 24),
-
               Text(
                 'أدخل رمز التحقق',
                 style: AppTextStyles.headlineMedium,
                 textAlign: TextAlign.center,
               ).animate(delay: 200.ms).fadeIn().slideY(begin: 0.2, end: 0),
-
               const SizedBox(height: 8),
-
               Text(
-                'تم إرسال رمز مكون من 6 أرقام إلى\\n${widget.phone}',
+                'تم إرسال رمز مكون من 6 أرقام إلى\n${widget.phone}',
                 style: AppTextStyles.bodyMedium.copyWith(height: 1.6),
                 textAlign: TextAlign.center,
               ).animate(delay: 300.ms).fadeIn(),
-
               const SizedBox(height: 40),
-
-              // OTP Input
               Directionality(
                 textDirection: TextDirection.ltr,
                 child: Pinput(
@@ -165,10 +200,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
                   hapticFeedbackType: HapticFeedbackType.mediumImpact,
                 ),
               ).animate(delay: 400.ms).fadeIn().slideY(begin: 0.3, end: 0),
-
               const SizedBox(height: 40),
-
-              // Verify Button
               ElevatedButton(
                 onPressed: _isLoading ? null : _verifyOTP,
                 child: _isLoading
@@ -180,24 +212,26 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
                           strokeWidth: 2,
                         ),
                       )
-                    : const Text('طھط­ظ‚ظ‚'),
+                    : Text(
+                        widget.purpose == 'reset' ? 'متابعة' : 'تحقق',
+                      ),
               ).animate(delay: 500.ms).fadeIn(),
-
               const SizedBox(height: 24),
-
-              // Resend
               if (_canResend)
                 TextButton(
-                  onPressed: () {
-                    // ref.read(authProvider.notifier).resendOTP(...)
-                    _startCountdown();
-                  },
-                  child: Text(
-                    'إعادة إرسال الرمز',
-                    style: AppTextStyles.labelLarge.copyWith(
-                      color: AppColors.primary,
-                    ),
-                  ),
+                  onPressed: _isResending ? null : _resendOTP,
+                  child: _isResending
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(
+                          'إعادة إرسال الرمز',
+                          style: AppTextStyles.labelLarge.copyWith(
+                            color: AppColors.primary,
+                          ),
+                        ),
                 )
               else
                 Text(
@@ -211,4 +245,3 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
     );
   }
 }
-

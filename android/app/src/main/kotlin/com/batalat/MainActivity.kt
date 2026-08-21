@@ -1,4 +1,4 @@
-package com.batalat.batalat_app
+package com.batalat
 
 import io.flutter.embedding.android.FlutterActivity
 

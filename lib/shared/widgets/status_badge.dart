@@ -28,6 +28,51 @@ class StatusBadge extends StatelessWidget {
     return StatusBadge(label: s.label, color: s.color, bgColor: s.bgColor);
   }
 
+  factory StatusBadge.fromCustomRequestStatus(
+    String status, {
+    String? statusDisplay,
+  }) {
+    final map = {
+      'pending_quote': _StatusStyle(
+        'بانتظار عرض سعر',
+        AppColors.statusPending,
+        AppColors.warningLight,
+      ),
+      'quoted': _StatusStyle(
+        'عرض سعر جاهز',
+        AppColors.statusConfirmed,
+        AppColors.infoLight,
+      ),
+      'accepted': _StatusStyle(
+        'مقبول',
+        AppColors.statusDelivered,
+        AppColors.successLight,
+      ),
+      'rejected': _StatusStyle(
+        'مرفوض',
+        AppColors.statusCancelled,
+        AppColors.errorLight,
+      ),
+      'cancelled': _StatusStyle(
+        'ملغي',
+        AppColors.statusCancelled,
+        AppColors.errorLight,
+      ),
+    };
+    final s = map[status];
+    if (s != null) {
+      return StatusBadge(label: s.label, color: s.color, bgColor: s.bgColor);
+    }
+    final label = (statusDisplay != null && statusDisplay.isNotEmpty)
+        ? statusDisplay
+        : status;
+    return StatusBadge(
+      label: label,
+      color: AppColors.textHint,
+      bgColor: AppColors.borderLight,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(

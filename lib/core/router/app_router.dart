@@ -8,6 +8,8 @@ import '../../features/onboarding/onboarding_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/register_screen.dart';
 import '../../features/auth/screens/otp_screen.dart';
+import '../../features/auth/screens/forgot_password_screen.dart';
+import '../../features/auth/screens/reset_password_screen.dart';
 import '../../features/auth/providers/auth_provider.dart';
 import '../../features/home/home_screen.dart';
 import '../../features/products/screens/products_list_screen.dart';
@@ -29,6 +31,7 @@ import '../../features/cms/screens/terms_screen.dart';
 import '../../features/wallet/screens/wallet_screen.dart';
 import '../../features/wallet/screens/payment_methods_screen.dart';
 import '../../features/products/screens/custom_requests_screen.dart';
+import '../../features/products/screens/create_custom_request_screen.dart';
 import 'package:batalat_app/shared/widgets/main_shell.dart';
 
 // ============================================================
@@ -41,6 +44,8 @@ class AppRoutes {
   static const login         = '/login';
   static const register      = '/register';
   static const otp           = '/otp';
+  static const forgotPassword = '/forgot-password';
+  static const resetPassword = '/reset-password';
   static const home          = '/home';
   static const catalog       = '/catalog/:slug';
   static const packages      = '/packages'; // legacy redirect
@@ -62,6 +67,7 @@ class AppRoutes {
   static const wallet        = '/wallet';
   static const paymentMethods = '/payment-methods';
   static const customRequests = '/custom-requests';
+  static const customRequestNew = '/custom-requests/new';
   static const myRentals = '/my-rentals';
 
   static String catalogPath(String slug) => '/catalog/$slug';
@@ -142,6 +148,20 @@ final routerProvider = Provider<GoRouter>((ref) {
             phone: extra['phone'],
             purpose: extra['purpose'] ?? 'login',
             fullName: extra['full_name'],
+          );
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.forgotPassword,
+        builder: (_, __) => const ForgotPasswordScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.resetPassword,
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>;
+          return ResetPasswordScreen(
+            phone: extra['phone'] as String,
+            code: extra['code'] as String,
           );
         },
       ),
@@ -261,6 +281,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.customRequests,
         builder: (_, __) => const CustomRequestsScreen(),
         routes: [
+          GoRoute(
+            path: 'new',
+            builder: (_, __) => const CreateCustomRequestScreen(),
+          ),
           GoRoute(
             path: ':id',
             builder: (context, state) => CustomRequestDetailScreen(

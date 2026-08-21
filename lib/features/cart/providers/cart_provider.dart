@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-enum CartItemType { product, equipment, package }
+enum CartItemType { product, equipment, package, custom }
 
 class CartItem {
   final String key;
@@ -54,6 +54,7 @@ class CartItem {
         CartItemType.product => 'product',
         CartItemType.equipment => 'equipment',
         CartItemType.package => 'package',
+        CartItemType.custom => 'custom',
       };
 
   CartItem copyWith({int? quantity}) {
@@ -87,12 +88,13 @@ class CartItem {
     final type = switch (typeStr) {
       'equipment' => CartItemType.equipment,
       'package' => CartItemType.package,
+      'custom' => CartItemType.custom,
       _ => CartItemType.product,
     };
     return CartItem(
       key: json['key'] as String? ?? '${typeStr}_${json['item_id']}',
       type: type,
-      itemId: json['item_id'] as int,
+      itemId: json['item_id'] as int? ?? 0,
       slug: json['slug'] as String? ?? '',
       name: json['name'] as String? ?? '',
       unitPrice: (json['unit_price'] as num?)?.toDouble() ??
@@ -106,20 +108,27 @@ class CartItem {
     );
   }
 
-  Map<String, dynamic> toOrderPayload() => {
-        'type': typeApi,
-        'name': name,
-        'price': unitPrice,
-        'quantity': quantity,
-        'selected_option_ids': extra['selected_option_ids'] ?? [],
-        'option_texts': extra['option_texts'] ?? {},
-        'custom_quote_id': extra['custom_quote_id'],
-        'extra_details': {
-          'item_id': itemId,
-          'slug': slug,
-          ...extra,
-        },
-      };
+  Map<String, dynamic> toOrderPayload() {
+    final details = <String, dynamic>{
+      'slug': slug,
+      ...extra,
+    };
+    if (itemId > 0) {
+      details['item_id'] = itemId;
+    } else {
+      details.remove('item_id');
+    }
+    return {
+      'type': typeApi,
+      'name': name,
+      'price': unitPrice,
+      'quantity': quantity,
+      'selected_option_ids': extra['selected_option_ids'] ?? [],
+      'option_texts': extra['option_texts'] ?? {},
+      'custom_quote_id': extra['custom_quote_id'],
+      'extra_details': details,
+    };
+  }
 
   static String buildKey({
     required CartItemType type,

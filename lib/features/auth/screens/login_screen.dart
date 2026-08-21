@@ -10,8 +10,10 @@ import 'package:batalat_app/core/theme/app_text_styles.dart';
 import 'package:batalat_app/core/constants/app_constants.dart';
 import 'package:batalat_app/core/router/app_router.dart';
 import '../providers/auth_provider.dart';
+import '../utils/phone_utils.dart';
 import 'package:batalat_app/shared/widgets/batalat_logo.dart';
 import 'package:batalat_app/shared/widgets/rose_pattern_background.dart';
+import 'package:batalat_app/core/network/api_client.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -39,16 +41,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     setState(() => _isLoading = true);
     try {
-      final phone = '+218${_phoneController.text.trim()}';
+      final phone = toLibyanE164(_phoneController.text);
+      if (phone == null) {
+        throw ApiException('رقم الهاتف غير صحيح');
+      }
       await ref.read(authProvider.notifier).login(
-        phone: phone,
-        password: _passwordController.text,
-      );
+            phone: phone,
+            password: _passwordController.text,
+          );
       if (mounted) context.go(AppRoutes.home);
     } catch (e) {
       if (mounted) {
+        final msg = e is ApiException
+            ? e.message
+            : e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
+          SnackBar(content: Text(msg)),
         );
       }
     } finally {
@@ -145,11 +153,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                     ),
                   ),
-                  validator: (v) {
-                    if (v == null || v.isEmpty) return 'أدخل رقم الهاتف';
-                    if (v.length < 9) return 'رقم الهاتف غير صحيح';
-                    return null;
-                  },
+                  validator: validateLibyanPhoneInput,
                 )
                     .animate(delay: 450.ms)
                     .fadeIn()
@@ -197,7 +201,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     .fadeIn()
                     .slideY(begin: 0.2, end: 0),
 
-                const SizedBox(height: 32),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton(
+                    onPressed: () => context.push(AppRoutes.forgotPassword),
+                    child: Text(
+                      'نسيت كلمة المرور؟',
+                      style: AppTextStyles.labelLarge.copyWith(
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                ).animate(delay: 560.ms).fadeIn(),
+
+                const SizedBox(height: 16),
 
                 // Login Button
                 ElevatedButton(

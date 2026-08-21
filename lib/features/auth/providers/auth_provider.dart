@@ -167,6 +167,47 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  /// إعادة إرسال رمز OTP
+  Future<void> resendOTP({
+    required String phone,
+    required String purpose,
+  }) async {
+    try {
+      await _dio.post('/auth/resend-otp/', data: {
+        'phone': phone,
+        'purpose': purpose,
+      });
+    } on DioException catch (e) {
+      throw ApiException.fromDioError(e);
+    }
+  }
+
+  /// طلب OTP لإعادة تعيين كلمة المرور
+  Future<void> forgotPassword({required String phone}) async {
+    try {
+      await _dio.post('/auth/forgot-password/', data: {'phone': phone});
+    } on DioException catch (e) {
+      throw ApiException.fromDioError(e);
+    }
+  }
+
+  /// تعيين كلمة مرور جديدة بعد OTP
+  Future<void> resetPassword({
+    required String phone,
+    required String code,
+    required String newPassword,
+  }) async {
+    try {
+      await _dio.post('/auth/reset-password/', data: {
+        'phone': phone,
+        'code': code,
+        'new_password': newPassword,
+      });
+    } on DioException catch (e) {
+      throw ApiException.fromDioError(e);
+    }
+  }
+
   /// تسجيل الخروج
   Future<void> logout() async {
     final refresh = await _storage.read(key: AppConstants.refreshTokenKey);

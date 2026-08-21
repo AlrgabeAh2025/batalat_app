@@ -1,4 +1,5 @@
 /// Batalat — My customization requests + quote accept/decline
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +8,7 @@ import 'package:iconsax/iconsax.dart';
 
 import 'package:batalat_app/core/constants/app_constants.dart';
 import 'package:batalat_app/core/network/api_client.dart';
+import 'package:batalat_app/core/router/app_router.dart';
 import 'package:batalat_app/core/theme/app_colors.dart';
 import 'package:batalat_app/core/theme/app_text_styles.dart';
 import 'package:batalat_app/features/cart/providers/cart_provider.dart';
@@ -16,6 +18,7 @@ import 'package:batalat_app/shared/widgets/batalat_button.dart';
 import 'package:batalat_app/shared/widgets/empty_state.dart';
 import 'package:batalat_app/shared/widgets/price_tag.dart';
 import 'package:batalat_app/shared/widgets/rose_pattern_background.dart';
+import 'package:batalat_app/shared/widgets/status_badge.dart';
 
 class CustomRequestsScreen extends ConsumerWidget {
   const CustomRequestsScreen({super.key});
@@ -26,7 +29,16 @@ class CustomRequestsScreen extends ConsumerWidget {
 
     return RoseDecorScaffold(
       density: RoseDecorDensity.rich,
-      appBar: const BatalatAppBar(title: 'طلباتي المخصصة'),
+      appBar: BatalatAppBar(
+        title: 'طلباتي المخصصة',
+        actions: [
+          IconButton(
+            tooltip: 'طلب جديد',
+            onPressed: () => context.push(AppRoutes.customRequestNew),
+            icon: const Icon(Iconsax.add, color: AppColors.primary),
+          ),
+        ],
+      ),
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => EmptyState(
@@ -38,10 +50,12 @@ class CustomRequestsScreen extends ConsumerWidget {
         ),
         data: (items) {
           if (items.isEmpty) {
-            return const EmptyState(
+            return EmptyState(
               emoji: '✏️',
-              title: 'لا توجد طلبات تخصيص',
-              subtitle: 'يمكنك طلب إضافة مخصصة من صفحة المنتج',
+              title: 'لا توجد طلبات مخصصة',
+              subtitle: 'أرسل وصفاً وصورة لما تحتاجه وسنرد بعرض سعر',
+              actionLabel: 'طلب مخصص جديد',
+              onAction: () => context.push(AppRoutes.customRequestNew),
             );
           }
           return RefreshIndicator(
@@ -63,38 +77,69 @@ class CustomRequestsScreen extends ConsumerWidget {
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: AppColors.borderLight),
                     ),
-                    child: Column(
+                    child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                r.productName,
-                                style: AppTextStyles.titleMedium,
-                              ),
+                        if (r.imageUrls.isNotEmpty)
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: CachedNetworkImage(
+                              imageUrl: r.imageUrls.first,
+                              width: 64,
+                              height: 64,
+                              fit: BoxFit.cover,
                             ),
-                            Text(
-                              r.statusDisplay.isNotEmpty
-                                  ? r.statusDisplay
-                                  : r.status,
-                              style: AppTextStyles.labelSmall.copyWith(
-                                color: AppColors.primary,
-                              ),
+                          )
+                        else
+                          Container(
+                            width: 64,
+                            height: 64,
+                            decoration: BoxDecoration(
+                              color: AppColors.primarySurface,
+                              borderRadius: BorderRadius.circular(8),
                             ),
-                          ],
+                            child: const Icon(
+                              Iconsax.edit,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      r.displayTitle,
+                                      style: AppTextStyles.titleMedium,
+                                    ),
+                                  ),
+                                  Text(
+                                    r.statusDisplay.isNotEmpty
+                                        ? r.statusDisplay
+                                        : r.status,
+                                    style: AppTextStyles.labelSmall.copyWith(
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                r.description,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTextStyles.bodyMedium,
+                              ),
+                              if (r.latestQuote != null) ...[
+                                const SizedBox(height: 8),
+                                PriceTag(price: r.latestQuote!.amount),
+                              ],
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: 6),
-                        Text(
-                          r.description,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTextStyles.bodyMedium,
-                        ),
-                        if (r.latestQuote != null) ...[
-                          const SizedBox(height: 8),
-                          PriceTag(price: r.latestQuote!.amount),
-                        ],
                       ],
                     ),
                   ),
@@ -103,6 +148,13 @@ class CustomRequestsScreen extends ConsumerWidget {
             ),
           );
         },
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => context.push(AppRoutes.customRequestNew),
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        icon: const Icon(Iconsax.add),
+        label: const Text('طلب جديد'),
       ),
     );
   }
@@ -124,12 +176,13 @@ class CustomRequestDetailScreen extends ConsumerWidget {
         final type = switch (typeStr) {
           'package' => CartItemType.package,
           'equipment' => CartItemType.equipment,
+          'custom' => CartItemType.custom,
           _ => CartItemType.product,
         };
         final unit = double.tryParse('${cart['unit_price']}') ?? 0;
         ref.read(cartProvider.notifier).addItem(
               type: type,
-              itemId: cart['item_id'] as int,
+              itemId: cart['item_id'] as int? ?? 0,
               slug: cart['slug']?.toString() ?? '',
               name: cart['name']?.toString() ?? '',
               unitPrice: unit,
@@ -177,7 +230,7 @@ class CustomRequestDetailScreen extends ConsumerWidget {
 
     return RoseDecorScaffold(
       density: RoseDecorDensity.rich,
-      appBar: const BatalatAppBar(title: 'تفاصيل التخصيص'),
+      appBar: const BatalatAppBar(title: 'تفاصيل الطلب المخصص'),
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => EmptyState(
@@ -193,14 +246,39 @@ class CustomRequestDetailScreen extends ConsumerWidget {
           return ListView(
             padding: const EdgeInsets.all(AppConstants.screenPadding),
             children: [
-              Text(r.productName, style: AppTextStyles.headlineSmall),
+              Text(r.displayTitle, style: AppTextStyles.headlineSmall),
+              const SizedBox(height: 10),
+              StatusBadge.fromCustomRequestStatus(
+                r.status,
+                statusDisplay: r.statusDisplay,
+              ),
               const SizedBox(height: 8),
               Text(
-                r.statusDisplay.isNotEmpty ? r.statusDisplay : r.status,
-                style: AppTextStyles.labelMedium.copyWith(
-                  color: AppColors.primary,
+                r.trackingHint,
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.textSecondary,
                 ),
               ),
+              if (r.imageUrls.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 160,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: r.imageUrls.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemBuilder: (_, i) => ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: CachedNetworkImage(
+                        imageUrl: r.imageUrls[i],
+                        width: 160,
+                        height: 160,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 16),
               Text('الوصف', style: AppTextStyles.titleMedium),
               const SizedBox(height: 6),

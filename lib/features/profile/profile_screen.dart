@@ -102,6 +102,11 @@ class ProfileScreen extends ConsumerWidget {
                   onTap: () => context.push(AppRoutes.customRequests),
                 ),
                 _SettingsItem(
+                  icon: Iconsax.add_circle,
+                  title: 'طلب مخصص جديد',
+                  onTap: () => context.push(AppRoutes.customRequestNew),
+                ),
+                _SettingsItem(
                   icon: Iconsax.box,
                   title: 'حجوزات الإيجار',
                   onTap: () => context.push(AppRoutes.myRentals),

@@ -158,7 +158,7 @@ class HomeScreen extends ConsumerWidget {
                                   ),
                                   const SizedBox(width: 10),
                                   Text(
-                                    'ابحث في الكتالوج...',
+                                    'ابحث عن باقة أو هدية...',
                                     style: AppTextStyles.bodyMedium.copyWith(
                                       color: AppColors.textHint,
                                     ),
@@ -181,7 +181,20 @@ class HomeScreen extends ConsumerWidget {
               ),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: () =>
+                          context.push(AppRoutes.customRequestNew),
+                      icon: const Icon(Iconsax.edit, size: 18),
+                      label: const Text('طلب مخصص'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   homeAsync.when(
                     loading: () => const Column(
                       children: [
