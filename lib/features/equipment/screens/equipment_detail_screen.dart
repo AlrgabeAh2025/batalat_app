@@ -8,6 +8,7 @@ import 'package:iconsax/iconsax.dart';
 import 'package:batalat_app/core/theme/app_colors.dart';
 import 'package:batalat_app/core/theme/app_text_styles.dart';
 import 'package:batalat_app/core/constants/app_constants.dart';
+import 'package:batalat_app/features/auth/utils/auth_gate.dart';
 import 'package:batalat_app/shared/widgets/batalat_button.dart';
 import 'package:batalat_app/shared/widgets/empty_state.dart';
 import 'package:batalat_app/shared/widgets/loading_shimmer.dart';
@@ -47,13 +48,13 @@ class EquipmentDetailScreen extends ConsumerWidget {
   }
 }
 
-class _Body extends StatelessWidget {
+class _Body extends ConsumerWidget {
   final EquipmentDetail item;
 
   const _Body({required this.item});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final images = <String>[
       if (item.thumbnail != null) item.thumbnail!,
       ...item.images,
@@ -145,7 +146,18 @@ class _Body extends StatelessWidget {
           padding: const EdgeInsets.all(AppConstants.screenPadding),
           child: BatalatButton(
             label: 'احجز الإيجار',
-            onTap: () => context.push('/equipment/${item.slug}/rent'),
+            onTap: () {
+              final rentPath = '/equipment/${item.slug}/rent';
+              if (!requireAuth(
+                context,
+                ref,
+                returnTo: rentPath,
+                message: 'سجّل الدخول لحجز الإيجار',
+              )) {
+                return;
+              }
+              context.push(rentPath);
+            },
           ),
         ),
       ),

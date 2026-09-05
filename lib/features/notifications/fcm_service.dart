@@ -15,6 +15,9 @@ class FcmService {
 
   static Future<void> registerIfPossible() async {
     try {
+      final access = await _storage.read(key: AppConstants.accessTokenKey);
+      if (access == null || access.isEmpty) return;
+
       final messaging = FirebaseMessaging.instance;
       await messaging.requestPermission(
         alert: true,

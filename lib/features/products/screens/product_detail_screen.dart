@@ -12,6 +12,7 @@ import 'package:batalat_app/core/router/app_router.dart';
 import 'package:batalat_app/core/theme/app_colors.dart';
 import 'package:batalat_app/core/theme/app_text_styles.dart';
 import 'package:batalat_app/core/constants/app_constants.dart';
+import 'package:batalat_app/features/auth/utils/auth_gate.dart';
 import 'package:batalat_app/features/cart/providers/cart_provider.dart';
 import 'package:batalat_app/shared/widgets/batalat_button.dart';
 import 'package:batalat_app/shared/widgets/category_icon_view.dart';
@@ -242,6 +243,14 @@ class _ProductDetailBodyState extends ConsumerState<_ProductDetailBody> {
   }
 
   Future<void> _openCustomRequest() async {
+    if (!requireAuth(
+      context,
+      ref,
+      returnTo: '${AppRoutes.products}/${product.slug}',
+      message: 'سجّل الدخول لإرسال طلب تخصيص',
+    )) {
+      return;
+    }
     final submitted = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -498,8 +507,18 @@ class _ProductDetailBodyState extends ConsumerState<_ProductDetailBody> {
           child: product.isEquipment
               ? BatalatButton(
                   label: 'احجز الإيجار',
-                  onTap: () =>
-                      context.push('/equipment/${product.slug}/rent'),
+                  onTap: () {
+                    final rentPath = '/equipment/${product.slug}/rent';
+                    if (!requireAuth(
+                      context,
+                      ref,
+                      returnTo: rentPath,
+                      message: 'سجّل الدخول لحجز الإيجار',
+                    )) {
+                      return;
+                    }
+                    context.push(rentPath);
+                  },
                 )
               : BatalatButton(
                   label: (product.stock > 0 || product.isPackage)

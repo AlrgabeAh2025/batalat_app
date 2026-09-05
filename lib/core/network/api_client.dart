@@ -132,7 +132,15 @@ class _AuthInterceptor extends Interceptor {
 
     final refreshed = await _refreshTokens();
     if (!refreshed) {
-      await _expireSession();
+      final refreshToken =
+          await _client.storage.read(key: AppConstants.refreshTokenKey);
+      final accessToken =
+          await _client.storage.read(key: AppConstants.accessTokenKey);
+      final hadSession = (refreshToken != null && refreshToken.isNotEmpty) ||
+          (accessToken != null && accessToken.isNotEmpty);
+      if (hadSession) {
+        await _expireSession();
+      }
       return handler.next(err);
     }
 

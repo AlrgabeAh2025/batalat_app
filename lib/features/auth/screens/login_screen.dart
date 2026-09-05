@@ -11,12 +11,15 @@ import 'package:batalat_app/core/constants/app_constants.dart';
 import 'package:batalat_app/core/router/app_router.dart';
 import '../providers/auth_provider.dart';
 import '../utils/phone_utils.dart';
+import '../utils/auth_gate.dart';
 import 'package:batalat_app/shared/widgets/batalat_logo.dart';
 import 'package:batalat_app/shared/widgets/rose_pattern_background.dart';
 import 'package:batalat_app/core/network/api_client.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({super.key});
+  final String? returnTo;
+
+  const LoginScreen({super.key, this.returnTo});
 
   @override
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
@@ -49,7 +52,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             phone: phone,
             password: _passwordController.text,
           );
-      if (mounted) context.go(AppRoutes.home);
+      if (mounted) {
+        navigateAfterAuth(context, returnTo: widget.returnTo);
+      }
     } catch (e) {
       if (mounted) {
         final msg = e is ApiException
@@ -259,6 +264,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 )
                     .animate(delay: 650.ms)
                     .fadeIn(),
+
+                const SizedBox(height: 8),
+
+                Center(
+                  child: TextButton(
+                    onPressed: () => context.go(AppRoutes.home),
+                    child: Text(
+                      'متابعة كزائر',
+                      style: AppTextStyles.labelLarge.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                ).animate(delay: 700.ms).fadeIn(),
               ],
             ),
           ),

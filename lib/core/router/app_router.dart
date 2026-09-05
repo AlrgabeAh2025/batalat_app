@@ -11,6 +11,7 @@ import '../../features/auth/screens/otp_screen.dart';
 import '../../features/auth/screens/forgot_password_screen.dart';
 import '../../features/auth/screens/reset_password_screen.dart';
 import '../../features/auth/providers/auth_provider.dart';
+import '../../features/auth/utils/auth_gate.dart';
 import '../../features/home/home_screen.dart';
 import '../../features/products/screens/products_list_screen.dart';
 import '../../features/products/screens/product_detail_screen.dart';
@@ -104,7 +105,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       final needsAuth = loc.startsWith('/checkout') ||
           loc.startsWith('/addresses') ||
           loc.startsWith('/orders') ||
-          loc.startsWith('/profile') ||
           loc.startsWith('/notifications') ||
           loc.startsWith('/wallet') ||
           loc.startsWith('/payment-methods') ||
@@ -113,7 +113,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           loc.contains('/rent');
 
       if (!auth.isAuthenticated && needsAuth) {
-        return AppRoutes.login;
+        final returnTo = Uri.encodeComponent(state.uri.toString());
+        return '${AppRoutes.login}?returnTo=$returnTo';
       }
 
       if (auth.isAuthenticated &&
@@ -134,7 +135,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.login,
-        builder: (_, __) => const LoginScreen(),
+        builder: (context, state) => LoginScreen(
+          returnTo: loginReturnTo(state),
+        ),
       ),
       GoRoute(
         path: AppRoutes.register,

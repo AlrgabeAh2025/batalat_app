@@ -49,7 +49,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     if (restored) {
       context.go(AppRoutes.home);
     } else {
-      context.go(AppRoutes.login);
+      context.go(AppRoutes.home);
     }
   }
 

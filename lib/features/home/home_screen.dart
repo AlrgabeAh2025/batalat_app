@@ -11,6 +11,7 @@ import 'package:batalat_app/core/theme/app_text_styles.dart';
 import 'package:batalat_app/core/constants/app_constants.dart';
 import 'package:batalat_app/core/router/app_router.dart';
 import 'package:batalat_app/features/auth/providers/auth_provider.dart';
+import 'package:batalat_app/features/auth/utils/auth_gate.dart';
 import 'package:batalat_app/features/notifications/providers/notifications_provider.dart';
 import 'package:batalat_app/features/products/models/product_models.dart';
 import 'package:batalat_app/features/products/providers/products_provider.dart';
@@ -26,8 +27,9 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isAuth = ref.watch(isAuthenticatedProvider);
     final user = ref.watch(currentUserProvider);
-    final userName = user?['full_name'] ?? 'عزيزنا';
+    final userName = isAuth ? (user?['full_name'] ?? 'عزيزنا') : 'زائر';
     final homeAsync = ref.watch(homeFeedProvider);
 
     return Scaffold(
@@ -87,8 +89,17 @@ class HomeScreen extends ConsumerWidget {
                                 ],
                               ),
                               GestureDetector(
-                                onTap: () =>
-                                    context.push(AppRoutes.notifications),
+                                onTap: () {
+                                  if (!requireAuth(
+                                    context,
+                                    ref,
+                                    returnTo: AppRoutes.notifications,
+                                    message: 'سجّل الدخول لعرض الإشعارات',
+                                  )) {
+                                    return;
+                                  }
+                                  context.push(AppRoutes.notifications);
+                                },
                                 child: Container(
                                   width: 44,
                                   height: 44,
@@ -185,8 +196,17 @@ class HomeScreen extends ConsumerWidget {
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton.icon(
-                      onPressed: () =>
-                          context.push(AppRoutes.customRequestNew),
+                      onPressed: () {
+                        if (!requireAuth(
+                          context,
+                          ref,
+                          returnTo: AppRoutes.customRequestNew,
+                          message: 'سجّل الدخول لإرسال طلب مخصص',
+                        )) {
+                          return;
+                        }
+                        context.push(AppRoutes.customRequestNew);
+                      },
                       icon: const Icon(Iconsax.edit, size: 18),
                       label: const Text('طلب مخصص'),
                       style: TextButton.styleFrom(

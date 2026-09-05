@@ -223,6 +223,23 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = const AuthState(isRestored: true, sessionExpired: false);
   }
 
+  /// حذف الحساب نهائياً (إخفاء هوية على الخادم)
+  Future<void> deleteAccount({required String password}) async {
+    final refresh = await _storage.read(key: AppConstants.refreshTokenKey);
+    try {
+      await _dio.delete(
+        '/users/account/',
+        data: {
+          'password': password,
+          if (refresh != null) 'refresh': refresh,
+        },
+      );
+    } on DioException catch (e) {
+      throw ApiException.fromDioError(e);
+    }
+    await logout();
+  }
+
   /// تحديث بيانات المستخدم
   Future<void> fetchProfile() async {
     final response = await _dio.get('/users/profile/');

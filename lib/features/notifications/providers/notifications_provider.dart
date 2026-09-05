@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:batalat_app/core/network/api_client.dart';
+import 'package:batalat_app/features/auth/providers/auth_provider.dart';
 
 class AppNotification {
   final int id;
@@ -53,6 +54,7 @@ class AppNotification {
 
 final notificationsProvider =
     FutureProvider.autoDispose<List<AppNotification>>((ref) async {
+  if (!ref.watch(isAuthenticatedProvider)) return [];
   try {
     final res = await ApiClient().dio.get('/notifications/');
     final data = res.data;
@@ -70,6 +72,7 @@ final notificationsProvider =
 
 final unreadNotificationsCountProvider =
     FutureProvider.autoDispose<int>((ref) async {
+  if (!ref.watch(isAuthenticatedProvider)) return 0;
   try {
     final res = await ApiClient().dio.get('/notifications/unread-count/');
     final data = res.data;

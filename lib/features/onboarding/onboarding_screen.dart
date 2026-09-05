@@ -56,7 +56,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     ),
   ];
 
-  Future<void> _finish() async {
+  Future<void> _finishGuest() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(AppConstants.onboardingKey, true);
+    if (mounted) context.go(AppRoutes.home);
+  }
+
+  Future<void> _finishLogin() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(AppConstants.onboardingKey, true);
     if (mounted) context.go(AppRoutes.login);
@@ -73,7 +79,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             Align(
               alignment: AlignmentDirectional.topEnd,
               child: TextButton(
-                onPressed: _finish,
+                onPressed: _finishGuest,
                 child: Text(
                   'تخطي',
                   style: AppTextStyles.labelLarge.copyWith(
@@ -124,15 +130,27 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           curve: Curves.easeInOut,
                         );
                       } else {
-                        _finish();
+                        _finishGuest();
                       }
                     },
                     child: Text(
                       _currentPage < _pages.length - 1
                           ? 'التالي'
-                          : 'ابدأ الآن',
+                          : 'تصفح كزائر',
                     ),
                   ),
+                  if (_currentPage == _pages.length - 1) ...[
+                    const SizedBox(height: 12),
+                    TextButton(
+                      onPressed: _finishLogin,
+                      child: Text(
+                        'تسجيل الدخول / إنشاء حساب',
+                        style: AppTextStyles.labelLarge.copyWith(
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

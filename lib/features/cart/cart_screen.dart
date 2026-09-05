@@ -9,6 +9,7 @@ import 'package:batalat_app/core/theme/app_colors.dart';
 import 'package:batalat_app/core/theme/app_text_styles.dart';
 import 'package:batalat_app/core/constants/app_constants.dart';
 import 'package:batalat_app/core/router/app_router.dart';
+import 'package:batalat_app/features/auth/utils/auth_gate.dart';
 import 'package:batalat_app/features/cart/providers/cart_provider.dart';
 import 'package:batalat_app/shared/widgets/batalat_app_bar.dart';
 import 'package:batalat_app/shared/widgets/batalat_button.dart';
@@ -176,7 +177,17 @@ class CartScreen extends ConsumerWidget {
                   const SizedBox(height: 16),
                   BatalatButton(
                     label: 'إتمام الشراء',
-                    onTap: () => context.push(AppRoutes.checkout),
+                    onTap: () {
+                      if (!requireAuth(
+                        context,
+                        ref,
+                        returnTo: AppRoutes.checkout,
+                        message: 'سجّل الدخول لإتمام الشراء',
+                      )) {
+                        return;
+                      }
+                      context.push(AppRoutes.checkout);
+                    },
                   ),
                 ],
               ),
