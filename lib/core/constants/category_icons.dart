@@ -1,6 +1,9 @@
 /// Batalat — أيقونات الأقسام من Material Icons (Google / Flutter Icons)
 /// القيمة في API = اسم الأيقونة (مثل local_florist / card_giftcard)
 /// يطابق ``Icons.<name>`` في Flutter ولوحة الإدارة.
+///
+/// ملاحظة: لا ننشئ `IconData(...)` ديناميكياً حتى لا يفشل
+/// `flutter build ipa` بسبب tree-shake icons.
 import 'package:flutter/material.dart';
 
 import 'material_icons_codepoints.dart';
@@ -99,7 +102,7 @@ const Map<String, String> kLegacyIconToMaterial = {
 class CategoryIconMapper {
   CategoryIconMapper._();
 
-  static const String _fontFamily = 'MaterialIcons';
+  static const String fontFamily = 'MaterialIcons';
 
   /// تطبيع أي قيمة مخزّنة إلى اسم Material Icon في Flutter
   static String normalize(String? raw) {
@@ -114,20 +117,22 @@ class CategoryIconMapper {
     return 'category';
   }
 
-  static IconData iconData(String? raw, {bool active = false}) {
+  /// نقطة الترميز لرسم الأيقونة بدون `IconData(...)` ديناميكي
+  static int? codePoint(String? raw, {bool active = false}) {
     final name = normalize(raw);
     if (active) {
       for (final candidate in ['${name}_rounded', '${name}_outlined', name]) {
         final cp = kMaterialIconCodepoints[candidate];
-        if (cp != null) {
-          return IconData(cp, fontFamily: _fontFamily);
-        }
+        if (cp != null) return cp;
       }
     }
-    final cp = kMaterialIconCodepoints[name];
-    if (cp != null) {
-      return IconData(cp, fontFamily: _fontFamily);
-    }
+    return kMaterialIconCodepoints[name] ??
+        kMaterialIconCodepoints['category'] ??
+        kMaterialIconCodepoints['category_outlined'];
+  }
+
+  /// للتوافق مع الاستدعاءات القديمة — يعيد أيقونة ثابتة فقط (آمنة للـ tree-shake)
+  static IconData iconData(String? raw, {bool active = false}) {
     return active ? Icons.category : Icons.category_outlined;
   }
 
