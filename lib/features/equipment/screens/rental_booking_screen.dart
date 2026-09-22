@@ -17,6 +17,7 @@ import 'package:batalat_app/shared/widgets/batalat_button.dart';
 import 'package:batalat_app/shared/widgets/empty_state.dart';
 import 'package:batalat_app/shared/widgets/loading_shimmer.dart';
 import 'package:batalat_app/shared/widgets/price_tag.dart';
+import 'package:batalat_app/shared/widgets/pull_to_refresh.dart';
 import '../models/equipment_models.dart';
 import '../providers/equipment_provider.dart';
 
@@ -188,9 +189,9 @@ class _RentalBookingScreenState extends ConsumerState<RentalBookingScreen> {
             TextButton(
               onPressed: () {
                 Navigator.pop(ctx);
-                context.go(AppRoutes.myRentals);
+                context.go(AppRoutes.orders);
               },
-              child: const Text('حجوزاتي'),
+              child: const Text('طلباتي'),
             ),
             TextButton(
               onPressed: () => Navigator.pop(ctx),
@@ -213,6 +214,15 @@ class _RentalBookingScreenState extends ConsumerState<RentalBookingScreen> {
     }
   }
 
+  Future<void> _refreshData() async {
+    ref.invalidate(equipmentDetailProvider(widget.slug));
+    ref.invalidate(addressesProvider);
+    await awaitRefresh(() async {
+      await ref.read(equipmentDetailProvider(widget.slug).future);
+      await ref.read(addressesProvider.future);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(equipmentDetailProvider(widget.slug));
@@ -224,20 +234,27 @@ class _RentalBookingScreenState extends ConsumerState<RentalBookingScreen> {
           title: Text('حجز إيجار', style: AppTextStyles.headlineSmall),
           backgroundColor: Colors.transparent,
         ),
-        body: const Padding(
-          padding: EdgeInsets.all(20),
-          child: LoadingShimmer(height: 280),
+        body: PullToRefresh(
+          onRefresh: _refreshData,
+          alwaysScrollable: true,
+          child: const Padding(
+            padding: EdgeInsets.all(20),
+            child: LoadingShimmer(height: 280),
+          ),
         ),
       ),
       error: (e, _) => Scaffold(
         appBar: AppBar(backgroundColor: Colors.transparent),
-        body: EmptyState(
-          emoji: '⚠️',
-          title: 'تعذر التحميل',
-          subtitle: e.toString(),
-          actionLabel: 'إعادة',
-          onAction: () =>
-              ref.invalidate(equipmentDetailProvider(widget.slug)),
+        body: PullToRefresh(
+          onRefresh: _refreshData,
+          alwaysScrollable: true,
+          child: EmptyState(
+            emoji: '⚠️',
+            title: 'تعذر التحميل',
+            subtitle: e.toString(),
+            actionLabel: 'إعادة',
+            onAction: _refreshData,
+          ),
         ),
       ),
       data: (item) {
@@ -251,9 +268,12 @@ class _RentalBookingScreenState extends ConsumerState<RentalBookingScreen> {
             backgroundColor: Colors.transparent,
             title: Text('حجز — ${item.name}', style: AppTextStyles.headlineSmall),
           ),
-          body: ListView(
-            padding: const EdgeInsets.all(AppConstants.screenPadding),
-            children: [
+          body: PullToRefresh(
+            onRefresh: _refreshData,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(AppConstants.screenPadding),
+              children: [
               if (item.pricingType == 'both') ...[
                 Text('نوع التسعير', style: AppTextStyles.titleMedium),
                 const SizedBox(height: 8),
@@ -531,6 +551,7 @@ class _RentalBookingScreenState extends ConsumerState<RentalBookingScreen> {
                 ),
               const SizedBox(height: 100),
             ],
+          ),
           ),
           bottomNavigationBar: SafeArea(
             child: Padding(

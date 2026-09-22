@@ -1,5 +1,10 @@
-/// Batalat — Product models (شجرة أقسام + أنواع موحّدة)
+/// Batalat — Product models (شجرة أقسام بيع/إيجار + منتجات موحّدة)
 import 'package:batalat_app/core/network/media_url.dart';
+
+class CommerceType {
+  static const sale = 'sale';
+  static const rental = 'rental';
+}
 
 class ProductItemKind {
   static const product = 'product';
@@ -20,6 +25,7 @@ class ProductCategory {
   final int navOrder;
   final int order;
   final int? parentId;
+  final String commerceType;
   final List<ProductCategory> children;
 
   const ProductCategory({
@@ -35,10 +41,13 @@ class ProductCategory {
     this.navOrder = 0,
     this.order = 0,
     this.parentId,
+    this.commerceType = '',
     this.children = const [],
   });
 
   bool get isRoot => parentId == null;
+  bool get isRental => commerceType == CommerceType.rental;
+  bool get isSale => commerceType == CommerceType.sale || commerceType.isEmpty;
 
   factory ProductCategory.fromJson(Map<String, dynamic> json) {
     final childrenJson = json['children'] as List<dynamic>? ?? [];
@@ -55,6 +64,7 @@ class ProductCategory {
       navOrder: json['nav_order'] as int? ?? 0,
       order: json['order'] as int? ?? 0,
       parentId: json['parent'] as int?,
+      commerceType: json['commerce_type'] as String? ?? '',
       children: childrenJson
           .map((e) => ProductCategory.fromJson(e as Map<String, dynamic>))
           .toList(),
@@ -127,6 +137,7 @@ class ProductItem {
   final String name;
   final String slug;
   final String itemKind;
+  final String commerceType;
   final int? categoryId;
   final String? categoryName;
   final String? categorySlug;
@@ -146,6 +157,7 @@ class ProductItem {
     required this.name,
     required this.slug,
     this.itemKind = ProductItemKind.product,
+    this.commerceType = '',
     this.categoryId,
     this.categoryName,
     this.categorySlug,
@@ -161,16 +173,28 @@ class ProductItem {
     this.pricingType = '',
   });
 
+  bool get isRental =>
+      commerceType == CommerceType.rental ||
+      itemKind == ProductItemKind.equipment;
   bool get isPackage => itemKind == ProductItemKind.package;
-  bool get isEquipment => itemKind == ProductItemKind.equipment;
-  bool get isProduct => itemKind == ProductItemKind.product;
+  bool get isEquipment => isRental;
+  bool get isProduct => !isRental;
 
   factory ProductItem.fromJson(Map<String, dynamic> json) {
+    final commerce = json['commerce_type'] as String? ?? '';
+    final kind = json['item_kind'] as String? ?? ProductItemKind.product;
+    final isRentalFlag = json['is_rental'] as bool?;
+    final resolvedCommerce = commerce.isNotEmpty
+        ? commerce
+        : (isRentalFlag == true || kind == ProductItemKind.equipment
+            ? CommerceType.rental
+            : CommerceType.sale);
     return ProductItem(
       id: json['id'] as int,
       name: json['name'] as String,
       slug: json['slug'] as String,
-      itemKind: json['item_kind'] as String? ?? ProductItemKind.product,
+      itemKind: kind,
+      commerceType: resolvedCommerce,
       categoryId: json['category'] is int ? json['category'] as int : null,
       categoryName: json['category_name'] as String?,
       categorySlug: json['category_slug'] as String?,
@@ -239,6 +263,7 @@ class ProductDetail extends ProductItem {
     required super.slug,
     required super.price,
     super.itemKind,
+    super.commerceType,
     super.comparePrice,
     super.discountPercentage,
     super.isOnSale,
@@ -282,6 +307,17 @@ class ProductDetail extends ProductItem {
       name: json['name'] as String,
       slug: json['slug'] as String,
       itemKind: json['item_kind'] as String? ?? ProductItemKind.product,
+      commerceType: () {
+        final c = json['commerce_type'] as String? ?? '';
+        if (c.isNotEmpty) return c;
+        if (json['is_rental'] == true) return CommerceType.rental;
+        if ((json['item_kind'] as String?) == ProductItemKind.equipment) {
+          return CommerceType.rental;
+        }
+        return category?.commerceType.isNotEmpty == true
+            ? category!.commerceType
+            : CommerceType.sale;
+      }(),
       price: _parseDouble(json['price']),
       comparePrice: json['compare_price'] != null
           ? _parseDouble(json['compare_price'])
@@ -326,17 +362,29 @@ class ProductDetail extends ProductItem {
 }
 
 class HomeSection {
-  final ProductCategory category;
+  final String title;
+  final ProductCategory? category;
   final List<ProductItem> products;
 
-  const HomeSection({required this.category, required this.products});
+  const HomeSection({
+    this.title = '',
+    this.category,
+    required this.products,
+  });
 
   factory HomeSection.fromJson(Map<String, dynamic> json) {
     final productsJson = json['products'] as List<dynamic>? ?? [];
+    ProductCategory? category;
+    final catJson = json['category'];
+    if (catJson is Map<String, dynamic>) {
+      category = ProductCategory.fromJson(catJson);
+    }
+    final title = (json['title'] as String?)?.trim() ?? '';
     return HomeSection(
-      category: ProductCategory.fromJson(
-        json['category'] as Map<String, dynamic>,
-      ),
+      title: title.isNotEmpty
+          ? title
+          : (category?.name ?? ''),
+      category: category,
       products: productsJson
           .map((e) => ProductItem.fromJson(e as Map<String, dynamic>))
           .toList(),
@@ -347,11 +395,13 @@ class HomeSection {
 class HomeFeed {
   final List<ProductCategory> banners;
   final List<ProductCategory> categories;
+  final List<ProductItem> featuredProducts;
   final List<HomeSection> sections;
 
   const HomeFeed({
     required this.banners,
     required this.categories,
+    this.featuredProducts = const [],
     required this.sections,
   });
 
@@ -362,6 +412,9 @@ class HomeFeed {
           .toList(),
       categories: (json['categories'] as List<dynamic>? ?? [])
           .map((e) => ProductCategory.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      featuredProducts: (json['featured_products'] as List<dynamic>? ?? [])
+          .map((e) => ProductItem.fromJson(e as Map<String, dynamic>))
           .toList(),
       sections: (json['sections'] as List<dynamic>? ?? [])
           .map((e) => HomeSection.fromJson(e as Map<String, dynamic>))

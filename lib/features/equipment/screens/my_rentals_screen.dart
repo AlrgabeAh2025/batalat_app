@@ -10,11 +10,19 @@ import 'package:batalat_app/core/theme/app_colors.dart';
 import 'package:batalat_app/core/theme/app_text_styles.dart';
 import 'package:batalat_app/shared/widgets/empty_state.dart';
 import 'package:batalat_app/shared/widgets/price_tag.dart';
+import 'package:batalat_app/shared/widgets/pull_to_refresh.dart';
 import '../models/equipment_models.dart';
 import '../providers/equipment_provider.dart';
 
 class MyRentalsScreen extends ConsumerWidget {
   const MyRentalsScreen({super.key});
+
+  Future<void> _refresh(WidgetRef ref) async {
+    ref.invalidate(myRentalsProvider);
+    await awaitRefresh(() async {
+      await ref.read(myRentalsProvider.future);
+    });
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -28,49 +36,42 @@ class MyRentalsScreen extends ConsumerWidget {
         actions: [
           IconButton(
             tooltip: 'تحديث',
-            onPressed: () => ref.invalidate(myRentalsProvider),
+            onPressed: () => _refresh(ref),
             icon: const Icon(Iconsax.refresh, color: AppColors.primary),
           ),
         ],
       ),
-      body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => EmptyState(
-          emoji: '⚠️',
-          title: 'تعذر التحميل',
-          subtitle: e.toString(),
-          actionLabel: 'إعادة',
-          onAction: () => ref.invalidate(myRentalsProvider),
-        ),
-        data: (items) {
-          if (items.isEmpty) {
-            return RefreshIndicator(
-              color: AppColors.primary,
-              onRefresh: () async => ref.invalidate(myRentalsProvider),
-              child: ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                children: const [
-                  SizedBox(height: 120),
-                  EmptyState(
-                    emoji: '📦',
-                    title: 'لا توجد حجوزات',
-                    subtitle: 'عند حجز معدة ستظهر هنا',
-                  ),
-                ],
-              ),
-            );
-          }
-          return RefreshIndicator(
-            color: AppColors.primary,
-            onRefresh: () async => ref.invalidate(myRentalsProvider),
-            child: ListView.separated(
+      body: PullToRefresh(
+        onRefresh: () => _refresh(ref),
+        alwaysScrollable: async.isLoading ||
+            async.hasError ||
+            (async.hasValue && async.value!.isEmpty),
+        child: async.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => EmptyState(
+            emoji: '⚠️',
+            title: 'تعذر التحميل',
+            subtitle: e.toString(),
+            actionLabel: 'إعادة',
+            onAction: () => _refresh(ref),
+          ),
+          data: (items) {
+            if (items.isEmpty) {
+              return const EmptyState(
+                emoji: '📦',
+                title: 'لا توجد حجوزات',
+                subtitle: 'عند حجز معدة ستظهر هنا',
+              );
+            }
+            return ListView.separated(
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(AppConstants.screenPadding),
               itemCount: items.length,
               separatorBuilder: (_, __) => const SizedBox(height: 12),
               itemBuilder: (_, i) => _RentalCard(item: items[i]),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }

@@ -17,6 +17,7 @@ import 'package:batalat_app/shared/widgets/batalat_app_bar.dart';
 import 'package:batalat_app/shared/widgets/batalat_button.dart';
 import 'package:batalat_app/shared/widgets/empty_state.dart';
 import 'package:batalat_app/shared/widgets/price_tag.dart';
+import 'package:batalat_app/shared/widgets/pull_to_refresh.dart';
 import 'package:batalat_app/shared/widgets/rose_pattern_background.dart';
 import 'package:batalat_app/shared/widgets/status_badge.dart';
 
@@ -39,29 +40,37 @@ class CustomRequestsScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => EmptyState(
-          emoji: '⚠️',
-          title: 'تعذر التحميل',
-          subtitle: e.toString(),
-          actionLabel: 'إعادة',
-          onAction: () => ref.invalidate(myCustomRequestsProvider),
-        ),
-        data: (items) {
-          if (items.isEmpty) {
-            return EmptyState(
-              emoji: '✏️',
-              title: 'لا توجد طلبات مخصصة',
-              subtitle: 'أرسل وصفاً وصورة لما تحتاجه وسنرد بعرض سعر',
-              actionLabel: 'طلب مخصص جديد',
-              onAction: () => context.push(AppRoutes.customRequestNew),
-            );
-          }
-          return RefreshIndicator(
-            color: AppColors.primary,
-            onRefresh: () async => ref.invalidate(myCustomRequestsProvider),
-            child: ListView.separated(
+      body: PullToRefresh(
+        onRefresh: () async {
+          ref.invalidate(myCustomRequestsProvider);
+          await awaitRefresh(() async {
+            await ref.read(myCustomRequestsProvider.future);
+          });
+        },
+        alwaysScrollable: async.isLoading ||
+            async.hasError ||
+            (async.hasValue && async.value!.isEmpty),
+        child: async.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => EmptyState(
+            emoji: '⚠️',
+            title: 'تعذر التحميل',
+            subtitle: e.toString(),
+            actionLabel: 'إعادة',
+            onAction: () => ref.invalidate(myCustomRequestsProvider),
+          ),
+          data: (items) {
+            if (items.isEmpty) {
+              return EmptyState(
+                emoji: '✏️',
+                title: 'لا توجد طلبات مخصصة',
+                subtitle: 'أرسل وصفاً وصورة لما تحتاجه وسنرد بعرض سعر',
+                actionLabel: 'طلب مخصص جديد',
+                onAction: () => context.push(AppRoutes.customRequestNew),
+              );
+            }
+            return ListView.separated(
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(AppConstants.screenPadding),
               itemCount: items.length,
               separatorBuilder: (_, __) => const SizedBox(height: 12),
@@ -145,9 +154,9 @@ class CustomRequestsScreen extends ConsumerWidget {
                   ),
                 );
               },
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.push(AppRoutes.customRequestNew),
@@ -231,21 +240,33 @@ class CustomRequestDetailScreen extends ConsumerWidget {
     return RoseDecorScaffold(
       density: RoseDecorDensity.rich,
       appBar: const BatalatAppBar(title: 'تفاصيل الطلب المخصص'),
-      body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => EmptyState(
-          emoji: '⚠️',
-          title: 'تعذر التحميل',
-          subtitle: e.toString(),
-          actionLabel: 'إعادة',
-          onAction: () =>
-              ref.invalidate(customRequestDetailProvider(requestId)),
-        ),
-        data: (r) {
-          final quote = r.latestQuote;
-          return ListView(
-            padding: const EdgeInsets.all(AppConstants.screenPadding),
-            children: [
+      body: PullToRefresh(
+        onRefresh: () async {
+          ref.invalidate(customRequestDetailProvider(requestId));
+          await awaitRefresh(() async {
+            await ref.read(customRequestDetailProvider(requestId).future);
+          });
+        },
+        alwaysScrollable: async.hasError || async.isLoading,
+        child: async.when(
+          loading: () => const SizedBox(
+            height: 320,
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (e, _) => EmptyState(
+            emoji: '⚠️',
+            title: 'تعذر التحميل',
+            subtitle: e.toString(),
+            actionLabel: 'إعادة',
+            onAction: () =>
+                ref.invalidate(customRequestDetailProvider(requestId)),
+          ),
+          data: (r) {
+            final quote = r.latestQuote;
+            return ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(AppConstants.screenPadding),
+              children: [
               Text(r.displayTitle, style: AppTextStyles.headlineSmall),
               const SizedBox(height: 10),
               StatusBadge.fromCustomRequestStatus(
@@ -332,6 +353,7 @@ class CustomRequestDetailScreen extends ConsumerWidget {
             ],
           );
         },
+        ),
       ),
     );
   }

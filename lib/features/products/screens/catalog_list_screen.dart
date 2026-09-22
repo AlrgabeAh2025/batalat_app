@@ -11,10 +11,11 @@ import 'package:batalat_app/core/theme/app_text_styles.dart';
 import 'package:batalat_app/core/constants/app_constants.dart';
 import 'package:batalat_app/core/router/app_router.dart';
 import 'package:batalat_app/shared/widgets/batalat_app_bar.dart';
+import 'package:batalat_app/shared/widgets/category_icon_view.dart';
 import 'package:batalat_app/shared/widgets/empty_state.dart';
 import 'package:batalat_app/shared/widgets/loading_shimmer.dart';
 import 'package:batalat_app/shared/widgets/price_tag.dart';
-import 'package:batalat_app/core/constants/category_icons.dart';
+import 'package:batalat_app/shared/widgets/pull_to_refresh.dart';
 import '../models/product_models.dart';
 import '../providers/products_provider.dart';
 
@@ -35,6 +36,16 @@ class CatalogListScreen extends ConsumerStatefulWidget {
 class _CatalogListScreenState extends ConsumerState<CatalogListScreen> {
   final _searchCtrl = TextEditingController();
 
+  static String _catalogTitle(String slug) {
+    const titles = {
+      'packages': 'الباقات',
+      'equipment': 'المعدات',
+      'flowers': 'الزهور',
+      'gifts': 'الهدايا',
+    };
+    return titles[slug] ?? slug;
+  }
+
   @override
   void dispose() {
     _searchCtrl.dispose();
@@ -52,7 +63,17 @@ class _CatalogListScreenState extends ConsumerState<CatalogListScreen> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: BatalatAppBar(title: widget.title ?? widget.rootSlug),
+      appBar: BatalatAppBar(
+        title: widget.title ?? _catalogTitle(widget.rootSlug),
+        showBackButton: true,
+        onBack: () {
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go(AppRoutes.categories);
+          }
+        },
+      ),
       body: Column(
         children: [
           Padding(
@@ -116,11 +137,17 @@ class _CatalogListScreenState extends ConsumerState<CatalogListScreen> {
                     return Padding(
                       padding: const EdgeInsets.only(left: 8),
                       child: ChoiceChip(
-                        label: Text(
-                          cat.id != 0 && cat.icon.isNotEmpty
-                              ? '${CategoryIconMapper.emoji(cat.icon)} ${cat.name}'
-                              : cat.name,
-                        ),
+                        avatar: cat.id != 0 && cat.icon.isNotEmpty
+                            ? CategoryIconView(
+                                icon: cat.icon,
+                                size: 16,
+                                active: isSelected,
+                                color: isSelected
+                                    ? AppColors.primary
+                                    : AppColors.textSecondary,
+                              )
+                            : null,
+                        label: Text(cat.name),
                         selected: isSelected,
                         onSelected: (val) {
                           if (val) {
@@ -152,44 +179,54 @@ class _CatalogListScreenState extends ConsumerState<CatalogListScreen> {
             },
           ),
           Expanded(
-            child: productsAsync.when(
-              loading: () => GridView.builder(
-                padding: const EdgeInsets.all(AppConstants.screenPadding),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  childAspectRatio: 0.72,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
+            child: PullToRefresh(
+              onRefresh: () async {
+                ref.invalidate(catalogProductsProvider(widget.rootSlug));
+                ref.invalidate(categoryChildrenProvider(widget.rootSlug));
+                await awaitRefresh(() async {
+                  await ref
+                      .read(catalogProductsProvider(widget.rootSlug).future);
+                });
+              },
+              // فقط للحالات غير القابلة للتمرير — GridView له AlwaysScrollableScrollPhysics
+              alwaysScrollable: productsAsync.hasError ||
+                  (productsAsync.hasValue &&
+                      productsAsync.value!.results.isEmpty),
+              child: productsAsync.when(
+                loading: () => GridView.builder(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(AppConstants.screenPadding),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    childAspectRatio: 0.72,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                  ),
+                  itemCount: 4,
+                  itemBuilder: (_, __) =>
+                      const LoadingShimmer(borderRadius: 16),
                 ),
-                itemCount: 4,
-                itemBuilder: (_, __) =>
-                    const LoadingShimmer(borderRadius: 16),
-              ),
-              error: (e, _) => Center(
-                child: TextButton(
-                  onPressed: () =>
-                      ref.invalidate(catalogProductsProvider(widget.rootSlug)),
-                  child: Text(
-                    'تعذر التحميل — إعادة',
-                    style: AppTextStyles.labelMedium
-                        .copyWith(color: AppColors.primary),
+                error: (e, _) => Center(
+                  child: TextButton(
+                    onPressed: () => ref
+                        .invalidate(catalogProductsProvider(widget.rootSlug)),
+                    child: Text(
+                      'تعذر التحميل — إعادة',
+                      style: AppTextStyles.labelMedium
+                          .copyWith(color: AppColors.primary),
+                    ),
                   ),
                 ),
-              ),
-              data: (page) {
-                if (page.results.isEmpty) {
-                  return EmptyState(
-                    emoji: '📦',
-                    title: 'لا توجد عناصر',
-                    subtitle: 'لا توجد منتجات في هذا القسم بعد',
-                  );
-                }
-                return RefreshIndicator(
-                  onRefresh: () async {
-                    ref.invalidate(catalogProductsProvider(widget.rootSlug));
-                    ref.invalidate(categoryChildrenProvider(widget.rootSlug));
-                  },
-                  child: GridView.builder(
+                data: (page) {
+                  if (page.results.isEmpty) {
+                    return const EmptyState(
+                      emoji: '📦',
+                      title: 'لا توجد عناصر',
+                      subtitle: 'لا توجد منتجات في هذا القسم بعد',
+                    );
+                  }
+                  return GridView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.all(AppConstants.screenPadding),
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
@@ -203,9 +240,9 @@ class _CatalogListScreenState extends ConsumerState<CatalogListScreen> {
                       final product = page.results[index];
                       return _CatalogCard(product: product, index: index);
                     },
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
           ),
         ],

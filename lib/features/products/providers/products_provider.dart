@@ -1,4 +1,4 @@
-/// Batalat — Products providers (Riverpod) — كتالوج موحّد من Backend
+/// Batalat — Products providers (Riverpod) — كتالوج موحّد بيع/إيجار
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -11,6 +11,7 @@ Future<List<ProductCategory>> _fetchCategories({
   bool tree = false,
   bool nav = false,
   String? parentSlug,
+  String? commerceType,
 }) async {
   try {
     final query = <String, dynamic>{
@@ -19,6 +20,8 @@ Future<List<ProductCategory>> _fetchCategories({
       if (tree) 'tree': 1,
       if (nav) 'nav': 1,
       if (parentSlug != null) 'parent': parentSlug,
+      if (commerceType != null && commerceType.isNotEmpty)
+        'commerce_type': commerceType,
     };
     final response = await ApiClient().dio.get(
       '/products/categories/',
@@ -40,7 +43,7 @@ Future<List<ProductCategory>> _fetchCategories({
 
 Future<List<ProductItem>> _fetchProducts({
   String? categorySlug,
-  String? itemKind,
+  String? commerceType,
   bool? isFeatured,
   String? search,
 }) async {
@@ -48,7 +51,8 @@ Future<List<ProductItem>> _fetchProducts({
     final query = <String, dynamic>{
       if (categorySlug != null) 'category': categorySlug,
       if (categorySlug != null) 'include_children': 1,
-      if (itemKind != null) 'item_kind': itemKind,
+      if (commerceType != null && commerceType.isNotEmpty)
+        'commerce_type': commerceType,
       if (isFeatured != null) 'is_featured': isFeatured,
       if (search != null && search.isNotEmpty) 'search': search,
     };
@@ -70,23 +74,29 @@ Future<List<ProductItem>> _fetchProducts({
 
 class ProductsFilter {
   final String? categorySlug;
-  final String? itemKind;
+  final String? commerceType;
   final String? search;
 
-  const ProductsFilter({this.categorySlug, this.itemKind, this.search});
+  const ProductsFilter({
+    this.categorySlug,
+    this.commerceType,
+    this.search,
+  });
 
   ProductsFilter copyWith({
     String? categorySlug,
-    String? itemKind,
+    String? commerceType,
     String? search,
     bool clearCategory = false,
-    bool clearItemKind = false,
+    bool clearCommerceType = false,
     bool clearSearch = false,
   }) {
     return ProductsFilter(
       categorySlug:
           clearCategory ? null : (categorySlug ?? this.categorySlug),
-      itemKind: clearItemKind ? null : (itemKind ?? this.itemKind),
+      commerceType: clearCommerceType
+          ? null
+          : (commerceType ?? this.commerceType),
       search: clearSearch ? null : (search ?? this.search),
     );
   }
@@ -96,11 +106,11 @@ class ProductsFilter {
       identical(this, other) ||
       other is ProductsFilter &&
           categorySlug == other.categorySlug &&
-          itemKind == other.itemKind &&
+          commerceType == other.commerceType &&
           search == other.search;
 
   @override
-  int get hashCode => Object.hash(categorySlug, itemKind, search);
+  int get hashCode => Object.hash(categorySlug, commerceType, search);
 }
 
 class ProductsFilterNotifier extends StateNotifier<ProductsFilter> {
@@ -115,11 +125,22 @@ class ProductsFilterNotifier extends StateNotifier<ProductsFilter> {
     }
   }
 
-  void setItemKind(String? kind) {
-    if (kind == null || kind.isEmpty) {
-      state = state.copyWith(clearItemKind: true);
+  void setCommerceType(String? type) {
+    if (type == null || type.isEmpty) {
+      state = state.copyWith(clearCommerceType: true);
     } else {
-      state = state.copyWith(itemKind: kind);
+      state = state.copyWith(commerceType: type);
+    }
+  }
+
+  /// Legacy alias
+  void setItemKind(String? kind) {
+    if (kind == 'equipment') {
+      setCommerceType(CommerceType.rental);
+    } else if (kind == null || kind.isEmpty) {
+      setCommerceType(null);
+    } else {
+      setCommerceType(CommerceType.sale);
     }
   }
 
@@ -160,7 +181,7 @@ final categoryTreeProvider =
   return _fetchCategories(tree: true);
 });
 
-/// تبويبات الشريط السفلي الديناميكية
+/// لم يعد يُستخدم في الشريط السفلي — الشجرة في شاشة الأقسام
 final navCategoriesProvider =
     FutureProvider<List<ProductCategory>>((ref) async {
   return _fetchCategories(nav: true);
@@ -196,7 +217,7 @@ final productsListProvider =
     final query = <String, dynamic>{
       if (filter.categorySlug != null) 'category': filter.categorySlug,
       if (filter.categorySlug != null) 'include_children': 1,
-      if (filter.itemKind != null) 'item_kind': filter.itemKind,
+      if (filter.commerceType != null) 'commerce_type': filter.commerceType,
       if (filter.search != null) 'search': filter.search,
     };
     final response = await ApiClient().dio.get(
@@ -216,7 +237,7 @@ final catalogProductsProvider = FutureProvider.autoDispose
     final query = <String, dynamic>{
       'category': filter.categorySlug ?? rootSlug,
       'include_children': 1,
-      if (filter.itemKind != null) 'item_kind': filter.itemKind,
+      if (filter.commerceType != null) 'commerce_type': filter.commerceType,
       if (filter.search != null) 'search': filter.search,
     };
     final response = await ApiClient().dio.get(

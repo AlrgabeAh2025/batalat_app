@@ -99,6 +99,15 @@ final termsProvider =
   }
 });
 
+final privacyProvider =
+    FutureProvider.autoDispose<LegalPageContent>((ref) async {
+  try {
+    final res = await ApiClient().dio.get('/cms/pages/privacy/');
+    return LegalPageContent.fromJson(Map<String, dynamic>.from(res.data as Map));
+  } on DioException catch (e) {
+    throw ApiException.fromDioError(e);
+  }
+});
 final faqsProvider = FutureProvider.autoDispose<List<FaqItem>>((ref) async {
   try {
     final res = await ApiClient().dio.get('/cms/faqs/');

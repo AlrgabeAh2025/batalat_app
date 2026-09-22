@@ -11,6 +11,7 @@ import 'package:batalat_app/core/theme/app_text_styles.dart';
 import 'package:batalat_app/features/cms/providers/cms_provider.dart';
 import 'package:batalat_app/shared/widgets/batalat_app_bar.dart';
 import 'package:batalat_app/shared/widgets/empty_state.dart';
+import 'package:batalat_app/shared/widgets/pull_to_refresh.dart';
 
 class ContactScreen extends ConsumerWidget {
   const ContactScreen({super.key});
@@ -22,6 +23,13 @@ class ContactScreen extends ConsumerWidget {
     }
   }
 
+  Future<void> _refresh(WidgetRef ref) async {
+    ref.invalidate(contactProvider);
+    await awaitRefresh(() async {
+      await ref.read(contactProvider.future);
+    });
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final contactAsync = ref.watch(contactProvider);
@@ -29,19 +37,26 @@ class ContactScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: const BatalatAppBar(title: 'تواصل معنا'),
-      body: contactAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => EmptyState(
-          emoji: '⚠️',
-          title: 'تعذر التحميل',
-          subtitle: e.toString(),
-          actionLabel: 'إعادة',
-          onAction: () => ref.invalidate(contactProvider),
-        ),
-        data: (c) {
-          return ListView(
-            padding: const EdgeInsets.all(AppConstants.screenPadding),
-            children: [
+      body: PullToRefresh(
+        onRefresh: () => _refresh(ref),
+        alwaysScrollable: contactAsync.hasError || contactAsync.isLoading,
+        child: contactAsync.when(
+          loading: () => const SizedBox(
+            height: 320,
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (e, _) => EmptyState(
+            emoji: '⚠️',
+            title: 'تعذر التحميل',
+            subtitle: e.toString(),
+            actionLabel: 'إعادة',
+            onAction: () => _refresh(ref),
+          ),
+          data: (c) {
+            return ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(AppConstants.screenPadding),
+              children: [
               if (c.phone.isNotEmpty)
                 _tile(
                   Iconsax.call,
@@ -85,9 +100,10 @@ class ContactScreen extends ConsumerWidget {
                   c.instagramUrl,
                   onTap: () => _open(c.instagramUrl),
                 ),
-            ],
-          );
-        },
+              ],
+            );
+          },
+        ),
       ),
     );
   }

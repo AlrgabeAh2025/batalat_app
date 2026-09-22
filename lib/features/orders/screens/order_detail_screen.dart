@@ -13,6 +13,7 @@ import 'package:batalat_app/shared/widgets/batalat_button.dart';
 import 'package:batalat_app/shared/widgets/empty_state.dart';
 import 'package:batalat_app/shared/widgets/price_tag.dart';
 import 'package:batalat_app/shared/widgets/status_badge.dart';
+import 'package:batalat_app/shared/widgets/pull_to_refresh.dart';
 import 'package:batalat_app/core/network/api_client.dart';
 import 'package:dio/dio.dart';
 
@@ -21,6 +22,13 @@ class OrderDetailScreen extends ConsumerWidget {
   final int? orderId;
 
   const OrderDetailScreen({super.key, this.slug, this.orderId});
+
+  Future<void> _refresh(WidgetRef ref, int id) async {
+    ref.invalidate(orderDetailProvider(id));
+    await awaitRefresh(() async {
+      await ref.read(orderDetailProvider(id).future);
+    });
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -38,16 +46,23 @@ class OrderDetailScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: const BatalatAppBar(title: 'تفاصيل الطلب'),
-      body: detailAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => EmptyState(
-          emoji: '??',
-          title: 'تعذر التحميل',
-          subtitle: e.toString(),
-          actionLabel: 'إعادة',
-          onAction: () => ref.invalidate(orderDetailProvider(id)),
+      body: PullToRefresh(
+        onRefresh: () => _refresh(ref, id),
+        alwaysScrollable: detailAsync.hasError || detailAsync.isLoading,
+        child: detailAsync.when(
+          loading: () => const SizedBox(
+            height: 320,
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (e, _) => EmptyState(
+            emoji: '??',
+            title: 'تعذر التحميل',
+            subtitle: e.toString(),
+            actionLabel: 'إعادة',
+            onAction: () => _refresh(ref, id),
+          ),
+          data: (order) => _OrderDetailBody(order: order, orderId: id),
         ),
-        data: (order) => _OrderDetailBody(order: order, orderId: id),
       ),
     );
   }
@@ -122,6 +137,7 @@ class _OrderDetailBodyState extends ConsumerState<_OrderDetailBody> {
   @override
   Widget build(BuildContext context) {
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(AppConstants.screenPadding),
       children: [
         Row(

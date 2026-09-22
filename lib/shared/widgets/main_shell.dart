@@ -1,20 +1,17 @@
 /// Batalat — Main Shell with Bottom Navigation
-/// ثابت: الرئيسية / السلة / طلباتي / حسابي
-/// ديناميكي: أقسام من Backend (?nav=1)
+/// الرئيسية / الأقسام / السلة / طلباتي / حسابي
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:iconsax/iconsax.dart';
+
+import 'package:batalat_app/core/constants/app_constants.dart';
+import 'package:batalat_app/core/router/app_router.dart';
 import 'package:batalat_app/core/theme/app_colors.dart';
 import 'package:batalat_app/core/theme/app_text_styles.dart';
-import 'package:batalat_app/core/constants/app_constants.dart';
-import 'package:batalat_app/core/constants/category_icons.dart';
-import 'package:batalat_app/core/router/app_router.dart';
 import 'package:batalat_app/features/auth/utils/auth_gate.dart';
 import 'package:batalat_app/features/cart/providers/cart_provider.dart';
-import 'package:batalat_app/features/products/models/product_models.dart';
-import 'package:batalat_app/features/products/providers/products_provider.dart';
-import 'package:batalat_app/shared/widgets/category_icon_view.dart';
+import 'package:batalat_app/shared/widgets/batalat_drawer.dart';
 import 'package:batalat_app/shared/widgets/rose_pattern_background.dart';
 
 class MainShell extends StatelessWidget {
@@ -24,7 +21,9 @@ class MainShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: mainShellScaffoldKey,
       backgroundColor: AppColors.background,
+      drawer: const BatalatDrawer(),
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -49,8 +48,6 @@ class _BatalatBottomNav extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final location = GoRouterState.of(context).matchedLocation;
     final cartCount = ref.watch(cartCountProvider);
-    final navAsync = ref.watch(navCategoriesProvider);
-    final navCats = navAsync.valueOrNull ?? const <ProductCategory>[];
 
     final items = <Widget>[
       _NavItem(
@@ -60,18 +57,14 @@ class _BatalatBottomNav extends ConsumerWidget {
         isActive: location.startsWith('/home'),
         onTap: () => context.go(AppRoutes.home),
       ),
-      ...navCats.map((cat) {
-        final route = AppRoutes.catalogPath(cat.slug);
-        final active = location.startsWith(route);
-        return _NavItem(
-          icon: CategoryIconMapper.iconData(cat.icon, active: false),
-          activeIcon: CategoryIconMapper.iconData(cat.icon, active: true),
-          label: cat.name,
-          categoryIcon: cat.icon,
-          isActive: active,
-          onTap: () => context.go(route),
-        );
-      }),
+      _NavItem(
+        icon: Iconsax.category,
+        activeIcon: Iconsax.category5,
+        label: 'الأقسام',
+        isActive: location.startsWith('/categories') ||
+            location.startsWith('/catalog'),
+        onTap: () => context.go(AppRoutes.categories),
+      ),
       _NavItem(
         icon: Iconsax.shopping_cart,
         activeIcon: Iconsax.shopping_cart5,
@@ -118,6 +111,8 @@ class _BatalatBottomNav extends ConsumerWidget {
         ],
       ),
       child: SafeArea(
+        top: false,
+        maintainBottomViewPadding: true,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
           child: Row(
@@ -137,7 +132,6 @@ class _NavItem extends StatelessWidget {
   final bool isActive;
   final VoidCallback onTap;
   final int badgeCount;
-  final String? categoryIcon;
 
   const _NavItem({
     required this.icon,
@@ -146,7 +140,6 @@ class _NavItem extends StatelessWidget {
     required this.isActive,
     required this.onTap,
     this.badgeCount = 0,
-    this.categoryIcon,
   });
 
   @override
@@ -170,19 +163,11 @@ class _NavItem extends StatelessWidget {
               Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  if (categoryIcon != null)
-                    CategoryIconView(
-                      icon: categoryIcon,
-                      size: 22,
-                      active: isActive,
-                      color: isActive ? AppColors.primary : AppColors.textHint,
-                    )
-                  else
-                    Icon(
-                      isActive ? activeIcon : icon,
-                      color: isActive ? AppColors.primary : AppColors.textHint,
-                      size: 22,
-                    ),
+                  Icon(
+                    isActive ? activeIcon : icon,
+                    color: isActive ? AppColors.primary : AppColors.textHint,
+                    size: 22,
+                  ),
                   if (badgeCount > 0)
                     Positioned(
                       top: -6,

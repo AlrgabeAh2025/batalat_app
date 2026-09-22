@@ -12,9 +12,17 @@ import 'package:batalat_app/features/wallet/providers/wallet_provider.dart';
 import 'package:batalat_app/shared/widgets/batalat_app_bar.dart';
 import 'package:batalat_app/shared/widgets/batalat_button.dart';
 import 'package:batalat_app/shared/widgets/empty_state.dart';
+import 'package:batalat_app/shared/widgets/pull_to_refresh.dart';
 
 class PaymentMethodsScreen extends ConsumerWidget {
   const PaymentMethodsScreen({super.key});
+
+  Future<void> _refresh(WidgetRef ref) async {
+    ref.invalidate(savedCardsProvider);
+    await awaitRefresh(() async {
+      await ref.read(savedCardsProvider.future);
+    });
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -22,82 +30,91 @@ class PaymentMethodsScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: const BatalatAppBar(title: 'طرق الدفع'),
+      appBar: const BatalatAppBar(title: 'مراجع البطاقات'),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _openAdd(context, ref),
         backgroundColor: AppColors.primary,
         icon: const Icon(Iconsax.add, color: Colors.white),
-        label: const Text('إضافة بطاقة', style: TextStyle(color: Colors.white)),
+        label: const Text('إضافة مرجع', style: TextStyle(color: Colors.white)),
       ),
-      body: cardsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => EmptyState(
-          emoji: '⚠️',
-          title: 'تعذر التحميل',
-          subtitle: e.toString(),
-          actionLabel: 'إعادة',
-          onAction: () => ref.invalidate(savedCardsProvider),
-        ),
-        data: (cards) {
-          if (cards.isEmpty) {
-            return EmptyState(
-              emoji: '💳',
-              title: 'لا توجد بطاقات محفوظة',
-              subtitle: 'أضف بطاقة كمرجع (آخر 4 أرقام فقط)',
-              actionLabel: 'إضافة',
-              onAction: () => _openAdd(context, ref),
-            );
-          }
-          return ListView.separated(
-            padding: const EdgeInsets.fromLTRB(
-              AppConstants.screenPadding,
-              AppConstants.screenPadding,
-              AppConstants.screenPadding,
-              100,
-            ),
-            itemCount: cards.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
-            itemBuilder: (_, i) {
-              final c = cards[i];
-              return Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: c.isDefault ? AppColors.primary : AppColors.borderLight,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Iconsax.card, color: AppColors.primary),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            c.label.isNotEmpty
-                                ? c.label
-                                : '•••• ${c.last4}',
-                            style: AppTextStyles.titleMedium,
-                          ),
-                          Text(
-                            '${c.holderName} · ${c.expiryMonth.toString().padLeft(2, '0')}/${c.expiryYear}',
-                            style: AppTextStyles.bodySmall,
-                          ),
-                          if (c.isDefault)
-                            Text(
-                              'افتراضي',
-                              style: AppTextStyles.labelSmall.copyWith(
-                                color: AppColors.primary,
-                              ),
-                            ),
-                        ],
-                      ),
+      body: PullToRefresh(
+        onRefresh: () => _refresh(ref),
+        alwaysScrollable: cardsAsync.hasError ||
+            cardsAsync.isLoading ||
+            (cardsAsync.valueOrNull?.isEmpty ?? false),
+        child: cardsAsync.when(
+          loading: () => const SizedBox(
+            height: 320,
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (e, _) => EmptyState(
+            emoji: '⚠️',
+            title: 'تعذر التحميل',
+            subtitle: e.toString(),
+            actionLabel: 'إعادة',
+            onAction: () => _refresh(ref),
+          ),
+          data: (cards) {
+            if (cards.isEmpty) {
+              return EmptyState(
+                emoji: '💳',
+                title: 'لا توجد بطاقات محفوظة',
+                subtitle: 'أضف بطاقة كمرجع (آخر 4 أرقام فقط)',
+                actionLabel: 'إضافة',
+                onAction: () => _openAdd(context, ref),
+              );
+            }
+            return ListView.separated(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(
+                AppConstants.screenPadding,
+                AppConstants.screenPadding,
+                AppConstants.screenPadding,
+                100,
+              ),
+              itemCount: cards.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              itemBuilder: (_, i) {
+                final c = cards[i];
+                return Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: c.isDefault ? AppColors.primary : AppColors.borderLight,
                     ),
-                    if (!c.isDefault)
-                      IconButton(
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Iconsax.card, color: AppColors.primary),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              c.label.isNotEmpty
+                                  ? c.label
+                                  : '•••• ${c.last4}',
+                              style: AppTextStyles.titleMedium,
+                            ),
+                            Text(
+                              '${c.holderName} · ${c.expiryMonth.toString().padLeft(2, '0')}/${c.expiryYear}',
+                              style: AppTextStyles.bodySmall,
+                            ),
+                            if (c.isDefault)
+                              Text(
+                                'افتراضي',
+                                style: AppTextStyles.labelSmall.copyWith(
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      if (!c.isDefault)
+                        IconButton(
                         tooltip: 'تعيين افتراضي',
                         icon: const Icon(Iconsax.tick_circle),
                         onPressed: () async {
@@ -120,6 +137,7 @@ class PaymentMethodsScreen extends ConsumerWidget {
             },
           );
         },
+        ),
       ),
     );
   }

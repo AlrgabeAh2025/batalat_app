@@ -26,13 +26,8 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
 
-  // إعداد شريط الحالة
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.dark,
-    systemNavigationBarColor: Colors.white,
-    systemNavigationBarIconBrightness: Brightness.dark,
-  ));
+  // ملء الشاشة: إخفاء شريط الحالة وأزرار التحكم
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
   // تهيئة Firebase
   try {
@@ -59,14 +54,29 @@ class BatalatApp extends ConsumerStatefulWidget {
   ConsumerState<BatalatApp> createState() => _BatalatAppState();
 }
 
-class _BatalatAppState extends ConsumerState<BatalatApp> {
+class _BatalatAppState extends ConsumerState<BatalatApp>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // عند فشل تجديد التوكن: تحديث حالة المصادقة → التوجيه لشاشة الدخول
     ApiClient().onSessionExpired = () {
       ref.read(authProvider.notifier).markSessionExpired();
     };
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    }
   }
 
   @override
@@ -91,6 +101,17 @@ class _BatalatAppState extends ConsumerState<BatalatApp> {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
+
+      // مع immersiveSticky: احترام النوتش عبر viewPadding
+      builder: (context, child) {
+        final media = MediaQuery.of(context);
+        return MediaQuery(
+          data: media.copyWith(
+            padding: media.padding.copyWith(top: media.viewPadding.top),
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
 
       // Router
       routerConfig: router,

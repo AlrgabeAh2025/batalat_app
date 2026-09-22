@@ -13,6 +13,7 @@ import 'package:batalat_app/shared/widgets/batalat_app_bar.dart';
 import 'package:batalat_app/shared/widgets/empty_state.dart';
 import 'package:batalat_app/shared/widgets/loading_shimmer.dart';
 import 'package:batalat_app/shared/widgets/price_tag.dart';
+import 'package:batalat_app/shared/widgets/pull_to_refresh.dart';
 import '../models/package_models.dart';
 import '../providers/packages_provider.dart';
 
@@ -115,40 +116,47 @@ class PackagesListScreen extends ConsumerWidget {
 
           // Packages Grid
           Expanded(
-            child: packagesAsync.when(
-              loading: () => GridView.builder(
-                padding: const EdgeInsets.all(AppConstants.screenPadding),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  childAspectRatio: 0.72,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
+            child: PullToRefresh(
+              onRefresh: () async {
+                ref.invalidate(packagesListProvider);
+                ref.invalidate(occasionsProvider);
+                await awaitRefresh(() async {
+                  await ref.read(packagesListProvider.future);
+                });
+              },
+              alwaysScrollable: packagesAsync.hasError ||
+                  (packagesAsync.hasValue &&
+                      packagesAsync.value!.results.isEmpty),
+              child: packagesAsync.when(
+                loading: () => GridView.builder(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(AppConstants.screenPadding),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    childAspectRatio: 0.72,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                  ),
+                  itemCount: 6,
+                  itemBuilder: (_, __) => const _GridCardShimmer(),
                 ),
-                itemCount: 6,
-                itemBuilder: (_, __) => const _GridCardShimmer(),
-              ),
-              error: (e, _) => EmptyState(
-                emoji: '⚠️',
-                title: 'تعذر تحميل الباقات',
-                subtitle: e.toString(),
-                actionLabel: 'إعادة المحاولة',
-                onAction: () => ref.invalidate(packagesListProvider),
-              ),
-              data: (page) {
-                if (page.results.isEmpty) {
-                  return const EmptyState(
-                    emoji: '🌹',
-                    title: 'لا توجد باقات',
-                    subtitle: 'جرّب تغيير الفلتر أو عد لاحقاً',
-                  );
-                }
-                return RefreshIndicator(
-                  color: AppColors.primary,
-                  onRefresh: () async {
-                    ref.invalidate(packagesListProvider);
-                    ref.invalidate(occasionsProvider);
-                  },
-                  child: GridView.builder(
+                error: (e, _) => EmptyState(
+                  emoji: '⚠️',
+                  title: 'تعذر تحميل الباقات',
+                  subtitle: e.toString(),
+                  actionLabel: 'إعادة المحاولة',
+                  onAction: () => ref.invalidate(packagesListProvider),
+                ),
+                data: (page) {
+                  if (page.results.isEmpty) {
+                    return const EmptyState(
+                      emoji: '🌹',
+                      title: 'لا توجد باقات',
+                      subtitle: 'جرّب تغيير الفلتر أو عد لاحقاً',
+                    );
+                  }
+                  return GridView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.all(AppConstants.screenPadding),
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
@@ -164,9 +172,9 @@ class PackagesListScreen extends ConsumerWidget {
                         index: index,
                       );
                     },
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
           ),
         ],

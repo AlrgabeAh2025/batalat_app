@@ -7,13 +7,14 @@ import 'package:go_router/go_router.dart';
 import 'package:iconsax/iconsax.dart';
 
 import 'package:batalat_app/core/constants/app_constants.dart';
-import 'package:batalat_app/core/constants/category_icons.dart';
 import 'package:batalat_app/core/theme/app_colors.dart';
 import 'package:batalat_app/core/theme/app_text_styles.dart';
 import 'package:batalat_app/shared/widgets/batalat_app_bar.dart';
+import 'package:batalat_app/shared/widgets/category_icon_view.dart';
 import 'package:batalat_app/shared/widgets/empty_state.dart';
 import 'package:batalat_app/shared/widgets/loading_shimmer.dart';
 import 'package:batalat_app/shared/widgets/price_tag.dart';
+import 'package:batalat_app/shared/widgets/pull_to_refresh.dart';
 import '../models/equipment_models.dart';
 import '../providers/equipment_provider.dart';
 
@@ -68,11 +69,17 @@ class EquipmentListScreen extends ConsumerWidget {
                     return Padding(
                       padding: const EdgeInsets.only(left: 8),
                       child: ChoiceChip(
-                        label: Text(
-                          cat.icon.isNotEmpty && cat.slug != 'all'
-                              ? '${CategoryIconMapper.emoji(cat.icon)} ${cat.name}'
-                              : cat.name,
-                        ),
+                        avatar: cat.icon.isNotEmpty && cat.slug != 'all'
+                            ? CategoryIconView(
+                                icon: cat.icon,
+                                size: 16,
+                                active: isSelected,
+                                color: isSelected
+                                    ? AppColors.primary
+                                    : AppColors.textSecondary,
+                              )
+                            : null,
+                        label: Text(cat.name),
                         selected: isSelected,
                         onSelected: (v) {
                           if (v) {
@@ -100,38 +107,44 @@ class EquipmentListScreen extends ConsumerWidget {
             },
           ),
           Expanded(
-            child: listAsync.when(
-              loading: () => GridView.builder(
-                padding: const EdgeInsets.all(AppConstants.screenPadding),
-                gridDelegate: _grid,
-                itemCount: 6,
-                itemBuilder: (_, __) => const LoadingShimmer(
-                  height: double.infinity,
-                  borderRadius: AppConstants.radiusLarge,
+            child: PullToRefresh(
+              onRefresh: () async {
+                ref.invalidate(equipmentListProvider);
+                ref.invalidate(equipmentCategoriesProvider);
+                await awaitRefresh(() async {
+                  await ref.read(equipmentListProvider.future);
+                });
+              },
+              alwaysScrollable: listAsync.hasError ||
+                  (listAsync.hasValue && listAsync.value!.results.isEmpty),
+              child: listAsync.when(
+                loading: () => GridView.builder(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(AppConstants.screenPadding),
+                  gridDelegate: _grid,
+                  itemCount: 6,
+                  itemBuilder: (_, __) => const LoadingShimmer(
+                    height: double.infinity,
+                    borderRadius: AppConstants.radiusLarge,
+                  ),
                 ),
-              ),
-              error: (e, _) => EmptyState(
-                emoji: '⚠️',
-                title: 'تعذر تحميل المعدات',
-                subtitle: e.toString(),
-                actionLabel: 'إعادة',
-                onAction: () => ref.invalidate(equipmentListProvider),
-              ),
-              data: (page) {
-                if (page.results.isEmpty) {
-                  return const EmptyState(
-                    emoji: '🎪',
-                    title: 'لا توجد معدات',
-                    subtitle: 'أضف معدات من لوحة التحكم',
-                  );
-                }
-                return RefreshIndicator(
-                  color: AppColors.primary,
-                  onRefresh: () async {
-                    ref.invalidate(equipmentListProvider);
-                    ref.invalidate(equipmentCategoriesProvider);
-                  },
-                  child: GridView.builder(
+                error: (e, _) => EmptyState(
+                  emoji: '⚠️',
+                  title: 'تعذر تحميل المعدات',
+                  subtitle: e.toString(),
+                  actionLabel: 'إعادة',
+                  onAction: () => ref.invalidate(equipmentListProvider),
+                ),
+                data: (page) {
+                  if (page.results.isEmpty) {
+                    return const EmptyState(
+                      emoji: '🎪',
+                      title: 'لا توجد معدات',
+                      subtitle: 'أضف معدات من لوحة التحكم',
+                    );
+                  }
+                  return GridView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.all(AppConstants.screenPadding),
                     gridDelegate: _grid,
                     itemCount: page.results.length,
@@ -139,9 +152,9 @@ class EquipmentListScreen extends ConsumerWidget {
                       item: page.results[i],
                       index: i,
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
           ),
         ],

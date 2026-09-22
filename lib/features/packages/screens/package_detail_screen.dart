@@ -9,10 +9,12 @@ import 'package:iconsax/iconsax.dart';
 import 'package:batalat_app/core/theme/app_colors.dart';
 import 'package:batalat_app/core/theme/app_text_styles.dart';
 import 'package:batalat_app/core/constants/app_constants.dart';
+import 'package:batalat_app/core/router/app_router.dart';
 import 'package:batalat_app/shared/widgets/batalat_button.dart';
 import 'package:batalat_app/shared/widgets/empty_state.dart';
 import 'package:batalat_app/shared/widgets/loading_shimmer.dart';
 import 'package:batalat_app/shared/widgets/price_tag.dart';
+import 'package:batalat_app/shared/widgets/pull_to_refresh.dart';
 import '../models/package_models.dart';
 import '../providers/packages_provider.dart';
 
@@ -26,6 +28,13 @@ class PackageDetailScreen extends ConsumerWidget {
     'color': 'اللون',
     'addon': 'إضافات',
   };
+
+  Future<void> _refresh(WidgetRef ref, String packageSlug) async {
+    ref.invalidate(packageDetailProvider(packageSlug));
+    await awaitRefresh(() async {
+      await ref.read(packageDetailProvider(packageSlug).future);
+    });
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -52,16 +61,20 @@ class PackageDetailScreen extends ConsumerWidget {
             onPressed: () => context.pop(),
           ),
         ),
-        body: const Padding(
-          padding: EdgeInsets.all(AppConstants.screenPadding),
-          child: Column(
-            children: [
-              LoadingShimmer(height: 280),
-              SizedBox(height: 24),
-              LoadingShimmer(height: 28),
-              SizedBox(height: 12),
-              LoadingShimmer(height: 80),
-            ],
+        body: PullToRefresh(
+          onRefresh: () => _refresh(ref, packageSlug),
+          alwaysScrollable: true,
+          child: const Padding(
+            padding: EdgeInsets.all(AppConstants.screenPadding),
+            child: Column(
+              children: [
+                LoadingShimmer(height: 280),
+                SizedBox(height: 24),
+                LoadingShimmer(height: 28),
+                SizedBox(height: 12),
+                LoadingShimmer(height: 80),
+              ],
+            ),
           ),
         ),
       ),
@@ -74,23 +87,34 @@ class PackageDetailScreen extends ConsumerWidget {
             onPressed: () => context.pop(),
           ),
         ),
-        body: EmptyState(
-          emoji: '⚠️',
-          title: 'تعذر تحميل الباقة',
-          subtitle: e.toString(),
-          actionLabel: 'إعادة المحاولة',
-          onAction: () => ref.invalidate(packageDetailProvider(packageSlug)),
+        body: PullToRefresh(
+          onRefresh: () => _refresh(ref, packageSlug),
+          alwaysScrollable: true,
+          child: EmptyState(
+            emoji: '⚠️',
+            title: 'تعذر تحميل الباقة',
+            subtitle: e.toString(),
+            actionLabel: 'إعادة المحاولة',
+            onAction: () => _refresh(ref, packageSlug),
+          ),
         ),
       ),
-      data: (pkg) => _PackageDetailBody(package: pkg),
+      data: (pkg) => _PackageDetailBody(
+        package: pkg,
+        onRefresh: () => _refresh(ref, packageSlug),
+      ),
     );
   }
 }
 
 class _PackageDetailBody extends StatelessWidget {
   final FlowerPackageDetail package;
+  final Future<void> Function() onRefresh;
 
-  const _PackageDetailBody({required this.package});
+  const _PackageDetailBody({
+    required this.package,
+    required this.onRefresh,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -109,8 +133,11 @@ class _PackageDetailBody extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: CustomScrollView(
-        slivers: [
+      body: PullToRefresh(
+        onRefresh: onRefresh,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
           SliverAppBar(
             expandedHeight: 350,
             pinned: true,
@@ -311,6 +338,7 @@ class _PackageDetailBody extends StatelessWidget {
             ),
           ),
         ],
+        ),
       ),
       bottomNavigationBar: Container(
         padding: const EdgeInsets.all(AppConstants.screenPadding),
@@ -325,27 +353,11 @@ class _PackageDetailBody extends StatelessWidget {
           ],
         ),
         child: SafeArea(
-          child: Row(
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  color: AppColors.primarySurface,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: IconButton(
-                  icon: const Icon(Iconsax.heart, color: AppColors.primary),
-                  onPressed: () {},
-                  padding: const EdgeInsets.all(14),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: BatalatButton(
-                  label: 'احجز الباقة الآن',
-                  onTap: () => context.push('/packages/${package.slug}/book'),
-                ),
-              ),
-            ],
+          child: BatalatButton(
+            label: 'اطلب من المتجر',
+            onTap: () => context.go(
+              '${AppRoutes.catalogPath('packages')}?title=${Uri.encodeComponent('الباقات')}',
+            ),
           ),
         ),
       ),

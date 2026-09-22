@@ -4,7 +4,7 @@ class AppConstants {
 
   // API
   // Android emulator: use 10.0.2.2 — physical device / host: use LAN IP
-  static const String baseUrl = 'https://batalat.ly/api/v1';
+  static const String baseUrl = 'https://app.alrgabe.com.ly/api/v1';
 
   /// Origin without `/api/v1` — used for absolute media URLs.
   static String get apiOrigin {
@@ -32,9 +32,11 @@ class AppConstants {
   // App Info
   static const String appName = 'Batalat';
   static const String appNameAr = 'باتلات';
-  static const String supportPhone = '+218910000000';
+  static const String supportPhone = '';
   static const String supportEmail = 'support@batalat.ly';
-
+  static const String supportUrl = 'https://batalat.ly/support';
+  static const String privacyUrl = 'https://batalat.ly/privacy';
+  static const String termsUrl = 'https://batalat.ly/terms';
   // Animation Durations
   static const Duration shortAnimation = Duration(milliseconds: 200);
   static const Duration mediumAnimation = Duration(milliseconds: 350);

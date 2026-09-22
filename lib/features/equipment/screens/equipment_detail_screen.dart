@@ -13,6 +13,7 @@ import 'package:batalat_app/shared/widgets/batalat_button.dart';
 import 'package:batalat_app/shared/widgets/empty_state.dart';
 import 'package:batalat_app/shared/widgets/loading_shimmer.dart';
 import 'package:batalat_app/shared/widgets/price_tag.dart';
+import 'package:batalat_app/shared/widgets/pull_to_refresh.dart';
 import '../models/equipment_models.dart';
 import '../providers/equipment_provider.dart';
 
@@ -21,6 +22,13 @@ class EquipmentDetailScreen extends ConsumerWidget {
 
   const EquipmentDetailScreen({super.key, required this.slug});
 
+  Future<void> _refresh(WidgetRef ref) async {
+    ref.invalidate(equipmentDetailProvider(slug));
+    await awaitRefresh(() async {
+      await ref.read(equipmentDetailProvider(slug).future);
+    });
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(equipmentDetailProvider(slug));
@@ -28,30 +36,39 @@ class EquipmentDetailScreen extends ConsumerWidget {
     return async.when(
       loading: () => Scaffold(
         appBar: AppBar(backgroundColor: Colors.transparent),
-        body: const Padding(
-          padding: EdgeInsets.all(20),
-          child: LoadingShimmer(height: 280),
+        body: PullToRefresh(
+          onRefresh: () => _refresh(ref),
+          alwaysScrollable: true,
+          child: const Padding(
+            padding: EdgeInsets.all(20),
+            child: LoadingShimmer(height: 280),
+          ),
         ),
       ),
       error: (e, _) => Scaffold(
         appBar: AppBar(backgroundColor: Colors.transparent),
-        body: EmptyState(
-          emoji: '⚠️',
-          title: 'تعذر التحميل',
-          subtitle: e.toString(),
-          actionLabel: 'إعادة',
-          onAction: () => ref.invalidate(equipmentDetailProvider(slug)),
+        body: PullToRefresh(
+          onRefresh: () => _refresh(ref),
+          alwaysScrollable: true,
+          child: EmptyState(
+            emoji: '⚠️',
+            title: 'تعذر التحميل',
+            subtitle: e.toString(),
+            actionLabel: 'إعادة',
+            onAction: () => _refresh(ref),
+          ),
         ),
       ),
-      data: (item) => _Body(item: item),
+      data: (item) => _Body(item: item, onRefresh: () => _refresh(ref)),
     );
   }
 }
 
 class _Body extends ConsumerWidget {
   final EquipmentDetail item;
+  final Future<void> Function() onRefresh;
 
-  const _Body({required this.item});
+  const _Body({required this.item, required this.onRefresh});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -62,8 +79,11 @@ class _Body extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: CustomScrollView(
-        slivers: [
+      body: PullToRefresh(
+        onRefresh: onRefresh,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
           SliverAppBar(
             expandedHeight: 320,
             pinned: true,
@@ -140,6 +160,7 @@ class _Body extends ConsumerWidget {
             ),
           ),
         ],
+      ),
       ),
       bottomNavigationBar: SafeArea(
         child: Padding(

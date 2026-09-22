@@ -13,9 +13,17 @@ import 'package:batalat_app/features/checkout/providers/locations_provider.dart'
 import 'package:batalat_app/shared/widgets/batalat_app_bar.dart';
 import 'package:batalat_app/shared/widgets/batalat_button.dart';
 import 'package:batalat_app/shared/widgets/empty_state.dart';
+import 'package:batalat_app/shared/widgets/pull_to_refresh.dart';
 
 class AddressesScreen extends ConsumerWidget {
   const AddressesScreen({super.key});
+
+  Future<void> _refresh(WidgetRef ref) async {
+    ref.invalidate(addressesProvider);
+    await awaitRefresh(() async {
+      await ref.read(addressesProvider.future);
+    });
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -30,54 +38,63 @@ class AddressesScreen extends ConsumerWidget {
         icon: const Icon(Iconsax.add, color: Colors.white),
         label: const Text('عنوان جديد', style: TextStyle(color: Colors.white)),
       ),
-      body: addressesAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => EmptyState(
-          emoji: '⚠️',
-          title: 'تعذر التحميل',
-          subtitle: e.toString(),
-          actionLabel: 'إعادة',
-          onAction: () => ref.invalidate(addressesProvider),
-        ),
-        data: (addresses) {
-          if (addresses.isEmpty) {
-            return EmptyState(
-              emoji: '📍',
-              title: 'لا توجد عناوين',
-              subtitle: 'أضف عنوان توصيل للمتابعة مع الطلبات',
-              actionLabel: 'إضافة عنوان',
-              onAction: () => _openAddSheet(context, ref),
-            );
-          }
-          return ListView.separated(
-            padding: const EdgeInsets.fromLTRB(
-              AppConstants.screenPadding,
-              AppConstants.screenPadding,
-              AppConstants.screenPadding,
-              100,
-            ),
-            itemCount: addresses.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
-            itemBuilder: (_, i) {
-              final a = addresses[i];
-              return Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: a.isDefault
-                        ? AppColors.primary
-                        : AppColors.borderLight,
+      body: PullToRefresh(
+        onRefresh: () => _refresh(ref),
+        alwaysScrollable: addressesAsync.hasError ||
+            addressesAsync.isLoading ||
+            (addressesAsync.valueOrNull?.isEmpty ?? false),
+        child: addressesAsync.when(
+          loading: () => const SizedBox(
+            height: 320,
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (e, _) => EmptyState(
+            emoji: '⚠️',
+            title: 'تعذر التحميل',
+            subtitle: e.toString(),
+            actionLabel: 'إعادة',
+            onAction: () => _refresh(ref),
+          ),
+          data: (addresses) {
+            if (addresses.isEmpty) {
+              return EmptyState(
+                emoji: '📍',
+                title: 'لا توجد عناوين',
+                subtitle: 'أضف عنوان توصيل للمتابعة مع الطلبات',
+                actionLabel: 'إضافة عنوان',
+                onAction: () => _openAddSheet(context, ref),
+              );
+            }
+            return ListView.separated(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(
+                AppConstants.screenPadding,
+                AppConstants.screenPadding,
+                AppConstants.screenPadding,
+                100,
+              ),
+              itemCount: addresses.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              itemBuilder: (_, i) {
+                final a = addresses[i];
+                return Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: a.isDefault
+                          ? AppColors.primary
+                          : AppColors.borderLight,
+                    ),
                   ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(a.label, style: AppTextStyles.titleMedium),
-                        if (a.isDefault) ...[
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(a.label, style: AppTextStyles.titleMedium),
+                          if (a.isDefault) ...[
                           const SizedBox(width: 8),
                           Text(
                             'افتراضي',
@@ -121,6 +138,7 @@ class AddressesScreen extends ConsumerWidget {
             },
           );
         },
+        ),
       ),
     );
   }

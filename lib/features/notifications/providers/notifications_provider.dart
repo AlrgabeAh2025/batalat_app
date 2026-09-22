@@ -34,6 +34,19 @@ class AppNotification {
     return int.tryParse(raw.toString());
   }
 
+  /// تنبيه إرجاع إيجار / أي بيانات حجز معدات
+  bool get isRentalReminder {
+    if (notificationType == 'rental_reminder') return true;
+    final t = data['type']?.toString();
+    return t == 'rental_reminder';
+  }
+
+  int? get bookingId {
+    final raw = data['booking_id'];
+    if (raw == null) return null;
+    return int.tryParse(raw.toString());
+  }
+
   factory AppNotification.fromJson(Map<String, dynamic> json) {
     return AppNotification(
       id: json['id'] as int,

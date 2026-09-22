@@ -26,7 +26,11 @@ class CartScreen extends ConsumerWidget {
     if (cart.items.isEmpty) {
       return Scaffold(
         backgroundColor: Colors.transparent,
-        appBar: const BatalatAppBar(title: 'السلة', showBackButton: false),
+        appBar: const BatalatAppBar(
+          title: 'السلة',
+          showBackButton: false,
+          showMenuButton: true,
+        ),
         body: EmptyState(
           emoji: '🛒',
           title: 'سلتك فارغة',
@@ -42,6 +46,7 @@ class CartScreen extends ConsumerWidget {
       appBar: BatalatAppBar(
         title: 'السلة (${cart.count})',
         showBackButton: false,
+        showMenuButton: true,
       ),
       body: Column(
         children: [

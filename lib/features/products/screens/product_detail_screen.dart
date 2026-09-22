@@ -19,6 +19,7 @@ import 'package:batalat_app/shared/widgets/category_icon_view.dart';
 import 'package:batalat_app/shared/widgets/empty_state.dart';
 import 'package:batalat_app/shared/widgets/loading_shimmer.dart';
 import 'package:batalat_app/shared/widgets/price_tag.dart';
+import 'package:batalat_app/shared/widgets/pull_to_refresh.dart';
 import '../models/product_models.dart';
 import '../providers/products_provider.dart';
 
@@ -26,6 +27,13 @@ class ProductDetailScreen extends ConsumerWidget {
   final String slug;
 
   const ProductDetailScreen({super.key, required this.slug});
+
+  Future<void> _refresh(WidgetRef ref) async {
+    ref.invalidate(productDetailProvider(slug));
+    await awaitRefresh(() async {
+      await ref.read(productDetailProvider(slug).future);
+    });
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -41,14 +49,18 @@ class ProductDetailScreen extends ConsumerWidget {
             onPressed: () => context.pop(),
           ),
         ),
-        body: const Padding(
-          padding: EdgeInsets.all(AppConstants.screenPadding),
-          child: Column(
-            children: [
-              LoadingShimmer(height: 280),
-              SizedBox(height: 24),
-              LoadingShimmer(height: 28),
-            ],
+        body: PullToRefresh(
+          onRefresh: () => _refresh(ref),
+          alwaysScrollable: true,
+          child: const Padding(
+            padding: EdgeInsets.all(AppConstants.screenPadding),
+            child: Column(
+              children: [
+                LoadingShimmer(height: 280),
+                SizedBox(height: 24),
+                LoadingShimmer(height: 28),
+              ],
+            ),
           ),
         ),
       ),
@@ -61,23 +73,34 @@ class ProductDetailScreen extends ConsumerWidget {
             onPressed: () => context.pop(),
           ),
         ),
-        body: EmptyState(
-          emoji: '⚠️',
-          title: 'تعذر تحميل المنتج',
-          subtitle: e.toString(),
-          actionLabel: 'إعادة المحاولة',
-          onAction: () => ref.invalidate(productDetailProvider(slug)),
+        body: PullToRefresh(
+          onRefresh: () => _refresh(ref),
+          alwaysScrollable: true,
+          child: EmptyState(
+            emoji: '⚠️',
+            title: 'تعذر تحميل المنتج',
+            subtitle: e.toString(),
+            actionLabel: 'إعادة المحاولة',
+            onAction: () => _refresh(ref),
+          ),
         ),
       ),
-      data: (product) => _ProductDetailBody(product: product),
+      data: (product) => _ProductDetailBody(
+        product: product,
+        onRefresh: () => _refresh(ref),
+      ),
     );
   }
 }
 
 class _ProductDetailBody extends ConsumerStatefulWidget {
   final ProductDetail product;
+  final Future<void> Function() onRefresh;
 
-  const _ProductDetailBody({required this.product});
+  const _ProductDetailBody({
+    required this.product,
+    required this.onRefresh,
+  });
 
   @override
   ConsumerState<_ProductDetailBody> createState() => _ProductDetailBodyState();
@@ -222,9 +245,7 @@ class _ProductDetailBodyState extends ConsumerState<_ProductDetailBody> {
     }
 
     ref.read(cartProvider.notifier).addItem(
-          type: product.isPackage
-              ? CartItemType.package
-              : CartItemType.product,
+          type: CartItemType.product,
           itemId: product.id,
           slug: product.slug,
           name: product.name,
@@ -294,8 +315,11 @@ class _ProductDetailBodyState extends ConsumerState<_ProductDetailBody> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: CustomScrollView(
-        slivers: [
+      body: PullToRefresh(
+        onRefresh: widget.onRefresh,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
           SliverAppBar(
             expandedHeight: 350,
             pinned: true,
@@ -491,6 +515,7 @@ class _ProductDetailBodyState extends ConsumerState<_ProductDetailBody> {
           ),
         ],
       ),
+      ),
       bottomNavigationBar: Container(
         padding: const EdgeInsets.all(AppConstants.screenPadding),
         decoration: BoxDecoration(
@@ -521,12 +546,10 @@ class _ProductDetailBodyState extends ConsumerState<_ProductDetailBody> {
                   },
                 )
               : BatalatButton(
-                  label: (product.stock > 0 || product.isPackage)
+                  label: product.stock > 0
                       ? 'إضافة — ${_livePrice.toStringAsFixed(0)} ${AppConstants.currency}'
                       : 'غير متوفر',
-                  onTap: (product.stock > 0 || product.isPackage)
-                      ? _addToCart
-                      : null,
+                  onTap: product.stock > 0 ? _addToCart : null,
                 ),
         ),
       ),

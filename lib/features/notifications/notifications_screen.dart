@@ -5,11 +5,13 @@ import 'package:go_router/go_router.dart';
 import 'package:iconsax/iconsax.dart';
 
 import 'package:batalat_app/core/constants/app_constants.dart';
+import 'package:batalat_app/core/router/app_router.dart';
 import 'package:batalat_app/core/theme/app_colors.dart';
 import 'package:batalat_app/core/theme/app_text_styles.dart';
 import 'package:batalat_app/features/notifications/providers/notifications_provider.dart';
 import 'package:batalat_app/shared/widgets/batalat_app_bar.dart';
 import 'package:batalat_app/shared/widgets/empty_state.dart';
+import 'package:batalat_app/shared/widgets/pull_to_refresh.dart';
 
 class NotificationsScreen extends ConsumerWidget {
   const NotificationsScreen({super.key});
@@ -21,6 +23,14 @@ class NotificationsScreen extends ConsumerWidget {
         '${local.day.toString().padLeft(2, '0')} '
         '${local.hour.toString().padLeft(2, '0')}:'
         '${local.minute.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _refresh(WidgetRef ref) async {
+    ref.invalidate(notificationsProvider);
+    ref.invalidate(unreadNotificationsCountProvider);
+    await awaitRefresh(() async {
+      await ref.read(notificationsProvider.future);
+    });
   }
 
   @override
@@ -43,40 +53,27 @@ class NotificationsScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: listAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => EmptyState(
-          emoji: '⚠️',
-          title: 'تعذر التحميل',
-          subtitle: e.toString(),
-          actionLabel: 'إعادة',
-          onAction: () => ref.invalidate(notificationsProvider),
-        ),
-        data: (items) {
-          if (items.isEmpty) {
-            return RefreshIndicator(
-              color: AppColors.primary,
-              onRefresh: () async {
-                ref.invalidate(notificationsProvider);
-                ref.invalidate(unreadNotificationsCountProvider);
-              },
-              child: ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                children: const [
-                  SizedBox(height: 120),
-                  EmptyState(emoji: '🔔', title: 'لا توجد إشعارات'),
-                ],
-              ),
-            );
-          }
+      body: PullToRefresh(
+        onRefresh: () => _refresh(ref),
+        alwaysScrollable: listAsync.isLoading ||
+            listAsync.hasError ||
+            (listAsync.hasValue && listAsync.value!.isEmpty),
+        child: listAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => EmptyState(
+            emoji: '⚠️',
+            title: 'تعذر التحميل',
+            subtitle: e.toString(),
+            actionLabel: 'إعادة',
+            onAction: () => _refresh(ref),
+          ),
+          data: (items) {
+            if (items.isEmpty) {
+              return const EmptyState(emoji: '🔔', title: 'لا توجد إشعارات');
+            }
 
-          return RefreshIndicator(
-            color: AppColors.primary,
-            onRefresh: () async {
-              ref.invalidate(notificationsProvider);
-              ref.invalidate(unreadNotificationsCountProvider);
-            },
-            child: ListView.separated(
+            return ListView.separated(
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(AppConstants.screenPadding),
               itemCount: items.length,
               separatorBuilder: (_, __) => const SizedBox(height: 10),
@@ -88,6 +85,10 @@ class NotificationsScreen extends ConsumerWidget {
                       await markNotificationRead(n.id);
                       ref.invalidate(notificationsProvider);
                       ref.invalidate(unreadNotificationsCountProvider);
+                    }
+                    if (n.isRentalReminder && context.mounted) {
+                      context.push(AppRoutes.orders);
+                      return;
                     }
                     final orderId = n.orderId;
                     if (orderId != null && context.mounted) {
@@ -156,9 +157,9 @@ class NotificationsScreen extends ConsumerWidget {
                   ),
                 );
               },
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }

@@ -18,8 +18,9 @@ import 'package:batalat_app/shared/widgets/batalat_app_bar.dart';
 import 'package:batalat_app/shared/widgets/batalat_button.dart';
 import 'package:batalat_app/shared/widgets/empty_state.dart';
 import 'package:batalat_app/shared/widgets/price_tag.dart';
+import 'package:batalat_app/shared/widgets/pull_to_refresh.dart';
 
-enum PaymentMethodOption { cod, card, gateway, wallet }
+enum PaymentMethodOption { cod, wallet }
 
 class CheckoutScreen extends ConsumerStatefulWidget {
   const CheckoutScreen({super.key});
@@ -42,8 +43,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
   String get _paymentApi => switch (_payment) {
         PaymentMethodOption.cod => 'cod',
-        PaymentMethodOption.card => 'card',
-        PaymentMethodOption.gateway => 'gateway',
         PaymentMethodOption.wallet => 'wallet',
       };
 
@@ -155,7 +154,18 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: const BatalatAppBar(title: 'إتمام الشراء'),
-      body: addressesAsync.when(
+      body: PullToRefresh(
+        onRefresh: () async {
+          ref.invalidate(addressesProvider);
+          ref.invalidate(walletProvider);
+          await awaitRefresh(() async {
+            await ref.read(addressesProvider.future);
+          });
+        },
+        alwaysScrollable: addressesAsync.isLoading ||
+            addressesAsync.hasError ||
+            (addressesAsync.hasValue && addressesAsync.value!.isEmpty),
+        child: addressesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => EmptyState(
           emoji: '⚠️',
@@ -190,11 +200,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           final deliveryFee = selected.deliveryFee;
           final total = cart.subtotal + deliveryFee;
 
-          // ضبط COD إذا غير مدعوم
+          // ضبط الدفع إذا COD غير مدعوم
           if (_payment == PaymentMethodOption.cod && !selected.supportsCod) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) {
-                setState(() => _payment = PaymentMethodOption.card);
+                setState(() => _payment = PaymentMethodOption.wallet);
               }
             });
           }
@@ -203,6 +213,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             children: [
               Expanded(
                 child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.all(AppConstants.screenPadding),
                   children: [
                     Text('عنوان التوصيل', style: AppTextStyles.titleLarge),
@@ -216,7 +227,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                           _selectedAddressId = v;
                           if (!addr.supportsCod &&
                               _payment == PaymentMethodOption.cod) {
-                            _payment = PaymentMethodOption.card;
+                            _payment = PaymentMethodOption.wallet;
                           }
                         }),
                         title: Text(addr.label, style: AppTextStyles.titleSmall),
@@ -259,28 +270,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
-                          'هذه المنطقة لا تدعم الدفع عند الاستلام',
+                          'هذه المنطقة لا تدعم الدفع عند الاستلام — استخدم المحفظة',
                           style: AppTextStyles.bodySmall.copyWith(
                             color: AppColors.error,
                           ),
                         ),
                       ),
-                    _PayTile(
-                      title: 'بطاقة ائتمان / مدى',
-                      subtitle: 'دفع آمن بالبطاقة',
-                      icon: Iconsax.card,
-                      selected: _payment == PaymentMethodOption.card,
-                      onTap: () =>
-                          setState(() => _payment = PaymentMethodOption.card),
-                    ),
-                    _PayTile(
-                      title: 'بوابة دفع إلكترونية',
-                      subtitle: 'Moyasar / Tap وغيرها',
-                      icon: Iconsax.global,
-                      selected: _payment == PaymentMethodOption.gateway,
-                      onTap: () => setState(
-                          () => _payment = PaymentMethodOption.gateway),
-                    ),
                     Consumer(
                       builder: (context, ref, _) {
                         final walletAsync = ref.watch(walletProvider);
@@ -355,6 +350,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             ],
           );
         },
+        ),
       ),
     );
   }

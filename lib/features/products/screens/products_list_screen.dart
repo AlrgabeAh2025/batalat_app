@@ -11,10 +11,11 @@ import 'package:batalat_app/core/theme/app_text_styles.dart';
 import 'package:batalat_app/core/constants/app_constants.dart';
 import 'package:batalat_app/core/router/app_router.dart';
 import 'package:batalat_app/shared/widgets/batalat_app_bar.dart';
+import 'package:batalat_app/shared/widgets/category_icon_view.dart';
 import 'package:batalat_app/shared/widgets/empty_state.dart';
 import 'package:batalat_app/shared/widgets/loading_shimmer.dart';
 import 'package:batalat_app/shared/widgets/price_tag.dart';
-import 'package:batalat_app/core/constants/category_icons.dart';
+import 'package:batalat_app/shared/widgets/pull_to_refresh.dart';
 import '../models/product_models.dart';
 import '../providers/products_provider.dart';
 
@@ -132,11 +133,17 @@ class _ProductsListScreenState extends ConsumerState<ProductsListScreen> {
                     return Padding(
                       padding: const EdgeInsets.only(left: 8),
                       child: ChoiceChip(
-                        label: Text(
-                          cat.slug != 'all' && cat.icon.isNotEmpty
-                              ? '${CategoryIconMapper.emoji(cat.icon)} ${cat.name}'
-                              : cat.name,
-                        ),
+                        avatar: cat.slug != 'all' && cat.icon.isNotEmpty
+                            ? CategoryIconView(
+                                icon: cat.icon,
+                                size: 16,
+                                active: isSelected,
+                                color: isSelected
+                                    ? AppColors.primary
+                                    : AppColors.textSecondary,
+                              )
+                            : null,
+                        label: Text(cat.name),
                         selected: isSelected,
                         onSelected: (val) {
                           if (val) {
@@ -167,43 +174,51 @@ class _ProductsListScreenState extends ConsumerState<ProductsListScreen> {
             },
           ),
           Expanded(
-            child: productsAsync.when(
-              loading: () => GridView.builder(
-                padding: const EdgeInsets.all(AppConstants.screenPadding),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  childAspectRatio: 0.72,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
+            child: PullToRefresh(
+              onRefresh: () async {
+                ref.invalidate(productsListProvider);
+                ref.invalidate(productCategoriesProvider);
+                await awaitRefresh(() async {
+                  await ref.read(productsListProvider.future);
+                });
+              },
+              alwaysScrollable: productsAsync.hasError ||
+                  (productsAsync.hasValue &&
+                      productsAsync.value!.results.isEmpty),
+              child: productsAsync.when(
+                loading: () => GridView.builder(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(AppConstants.screenPadding),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    childAspectRatio: 0.72,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                  ),
+                  itemCount: 4,
+                  itemBuilder: (_, __) =>
+                      const LoadingShimmer(borderRadius: 16),
                 ),
-                itemCount: 4,
-                itemBuilder: (_, __) =>
-                    const LoadingShimmer(borderRadius: 16),
-              ),
-              error: (e, _) => Center(
-                child: TextButton(
-                  onPressed: () => ref.invalidate(productsListProvider),
-                  child: Text(
-                    'تعذر التحميل — إعادة',
-                    style: AppTextStyles.labelMedium
-                        .copyWith(color: AppColors.primary),
+                error: (e, _) => Center(
+                  child: TextButton(
+                    onPressed: () => ref.invalidate(productsListProvider),
+                    child: Text(
+                      'تعذر التحميل — إعادة',
+                      style: AppTextStyles.labelMedium
+                          .copyWith(color: AppColors.primary),
+                    ),
                   ),
                 ),
-              ),
-              data: (page) {
-                if (page.results.isEmpty) {
-                  return const EmptyState(
-                    emoji: '🔎',
-                    title: 'لا توجد نتائج',
-                    subtitle: 'جرّب قسماً آخر أو غيّر كلمات البحث',
-                  );
-                }
-                return RefreshIndicator(
-                  onRefresh: () async {
-                    ref.invalidate(productsListProvider);
-                    ref.invalidate(productCategoriesProvider);
-                  },
-                  child: GridView.builder(
+                data: (page) {
+                  if (page.results.isEmpty) {
+                    return const EmptyState(
+                      emoji: '🔎',
+                      title: 'لا توجد نتائج',
+                      subtitle: 'جرّب قسماً آخر أو غيّر كلمات البحث',
+                    );
+                  }
+                  return GridView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.all(AppConstants.screenPadding),
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
@@ -220,9 +235,9 @@ class _ProductsListScreenState extends ConsumerState<ProductsListScreen> {
                         index: index,
                       );
                     },
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
           ),
         ],

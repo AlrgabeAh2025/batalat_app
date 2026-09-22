@@ -274,6 +274,20 @@ class RentalBookingItem {
     this.depositRefunded = 0,
   });
 
+  bool get isCurrent =>
+      status != 'returned' && status != 'cancelled';
+
+  bool get isReturnOverdue {
+    if (!isCurrent) return false;
+    return endDate.toLocal().isBefore(DateTime.now());
+  }
+
+  bool get isReturnDueSoon {
+    if (!isCurrent || isReturnOverdue) return false;
+    final end = endDate.toLocal();
+    return end.isBefore(DateTime.now().add(const Duration(hours: 24)));
+  }
+
   factory RentalBookingItem.fromJson(Map<String, dynamic> json) {
     return RentalBookingItem(
       id: json['id'] as int,

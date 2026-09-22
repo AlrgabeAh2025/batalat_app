@@ -27,6 +27,7 @@ class ProfileScreen extends ConsumerWidget {
       appBar: const BatalatAppBar(
         title: 'حسابي',
         showBackButton: false,
+        showMenuButton: true,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(AppConstants.screenPadding),
@@ -169,23 +170,18 @@ class _AuthenticatedProfile extends StatelessWidget {
             ),
             _SettingsItem(
               icon: Iconsax.card,
-              title: 'طرق الدفع',
+              title: 'مراجع البطاقات',
               onTap: () => context.push(AppRoutes.paymentMethods),
             ),
             _SettingsItem(
-              icon: Iconsax.edit,
-              title: 'طلباتي المخصصة',
-              onTap: () => context.push(AppRoutes.customRequests),
+              icon: Iconsax.document_text,
+              title: 'طلباتي',
+              onTap: () => context.go(AppRoutes.orders),
             ),
             _SettingsItem(
               icon: Iconsax.add_circle,
               title: 'طلب مخصص جديد',
               onTap: () => context.push(AppRoutes.customRequestNew),
-            ),
-            _SettingsItem(
-              icon: Iconsax.box,
-              title: 'حجوزات الإيجار',
-              onTap: () => context.push(AppRoutes.myRentals),
             ),
             _SettingsItem(
               icon: Iconsax.notification,
@@ -242,6 +238,11 @@ class _SupportSection extends StatelessWidget {
           icon: Iconsax.shield_tick,
           title: 'الشروط والأحكام',
           onTap: () => context.push(AppRoutes.terms),
+        ),
+        _SettingsItem(
+          icon: Iconsax.lock,
+          title: 'سياسة الخصوصية',
+          onTap: () => context.push(AppRoutes.privacy),
         ),
       ],
     );

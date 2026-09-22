@@ -1,4 +1,4 @@
-/// Batalat — Terms Screen
+/// Batalat — Privacy Policy Screen
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -10,27 +10,27 @@ import 'package:batalat_app/shared/widgets/batalat_app_bar.dart';
 import 'package:batalat_app/shared/widgets/empty_state.dart';
 import 'package:batalat_app/shared/widgets/pull_to_refresh.dart';
 
-class TermsScreen extends ConsumerWidget {
-  const TermsScreen({super.key});
+class PrivacyScreen extends ConsumerWidget {
+  const PrivacyScreen({super.key});
 
   Future<void> _refresh(WidgetRef ref) async {
-    ref.invalidate(termsProvider);
+    ref.invalidate(privacyProvider);
     await awaitRefresh(() async {
-      await ref.read(termsProvider.future);
+      await ref.read(privacyProvider.future);
     });
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final termsAsync = ref.watch(termsProvider);
+    final privacyAsync = ref.watch(privacyProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: const BatalatAppBar(title: 'الشروط والأحكام'),
+      appBar: const BatalatAppBar(title: 'سياسة الخصوصية'),
       body: PullToRefresh(
         onRefresh: () => _refresh(ref),
-        alwaysScrollable: termsAsync.hasError || termsAsync.isLoading,
-        child: termsAsync.when(
+        alwaysScrollable: privacyAsync.hasError || privacyAsync.isLoading,
+        child: privacyAsync.when(
           loading: () => const SizedBox(
             height: 320,
             child: Center(child: CircularProgressIndicator()),

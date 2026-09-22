@@ -16,9 +16,9 @@ import '../../features/home/home_screen.dart';
 import '../../features/products/screens/products_list_screen.dart';
 import '../../features/products/screens/product_detail_screen.dart';
 import '../../features/products/screens/catalog_list_screen.dart';
+import '../../features/products/screens/categories_screen.dart';
 import '../../features/equipment/screens/equipment_detail_screen.dart';
 import '../../features/equipment/screens/rental_booking_screen.dart';
-import '../../features/equipment/screens/my_rentals_screen.dart';
 import '../../features/cart/cart_screen.dart';
 import '../../features/checkout/checkout_screen.dart';
 import '../../features/checkout/screens/addresses_screen.dart';
@@ -29,10 +29,12 @@ import '../../features/notifications/notifications_screen.dart';
 import '../../features/cms/screens/faq_screen.dart';
 import '../../features/cms/screens/contact_screen.dart';
 import '../../features/cms/screens/terms_screen.dart';
+import '../../features/cms/screens/privacy_screen.dart';
 import '../../features/wallet/screens/wallet_screen.dart';
 import '../../features/wallet/screens/payment_methods_screen.dart';
 import '../../features/products/screens/custom_requests_screen.dart';
 import '../../features/products/screens/create_custom_request_screen.dart';
+import '../../features/packages/screens/package_booking_screen.dart';
 import 'package:batalat_app/shared/widgets/main_shell.dart';
 
 // ============================================================
@@ -48,6 +50,7 @@ class AppRoutes {
   static const forgotPassword = '/forgot-password';
   static const resetPassword = '/reset-password';
   static const home          = '/home';
+  static const categories    = '/categories';
   static const catalog       = '/catalog/:slug';
   static const packages      = '/packages'; // legacy redirect
   static const products      = '/products';
@@ -65,6 +68,7 @@ class AppRoutes {
   static const faq           = '/faq';
   static const contact       = '/contact';
   static const terms         = '/terms';
+  static const privacy       = '/privacy';
   static const wallet        = '/wallet';
   static const paymentMethods = '/payment-methods';
   static const customRequests = '/custom-requests';
@@ -177,6 +181,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (_, __) => const HomeScreen(),
           ),
           GoRoute(
+            path: AppRoutes.categories,
+            builder: (_, __) => const CategoriesScreen(),
+          ),
+          GoRoute(
             path: '/catalog/:slug',
             builder: (context, state) {
               final slug = state.pathParameters['slug']!;
@@ -186,7 +194,21 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: AppRoutes.packages,
-            redirect: (_, __) => AppRoutes.catalogPath('packages'),
+            redirect: (context, state) {
+              final path = state.uri.path;
+              if (path == '/packages' || path == '/packages/') {
+                return '${AppRoutes.catalogPath('packages')}?title=${Uri.encodeComponent('الباقات')}';
+              }
+              return null;
+            },
+            routes: [
+              GoRoute(
+                path: ':slug/book',
+                builder: (context, state) => PackageBookingScreen(
+                  slug: state.pathParameters['slug'],
+                ),
+              ),
+            ],
           ),
           GoRoute(
             path: AppRoutes.products,
@@ -209,7 +231,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: AppRoutes.equipment,
-            redirect: (_, __) => AppRoutes.catalogPath('equipment'),
+            redirect: (_, __) =>
+                '${AppRoutes.catalogPath('equipment')}?title=${Uri.encodeComponent('المعدات')}',
           ),
           GoRoute(
             path: '/equipment/:slug',
@@ -231,7 +254,9 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: AppRoutes.orders,
-            builder: (_, __) => const OrdersScreen(),
+            builder: (_, state) => OrdersScreen(
+              initialTab: state.uri.queryParameters['tab'],
+            ),
             routes: [
               GoRoute(
                 path: ':id',
@@ -273,6 +298,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const TermsScreen(),
       ),
       GoRoute(
+        path: AppRoutes.privacy,
+        builder: (_, __) => const PrivacyScreen(),
+      ),
+      GoRoute(
         path: AppRoutes.wallet,
         builder: (_, __) => const WalletScreen(),
       ),
@@ -298,7 +327,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.myRentals,
-        builder: (_, __) => const MyRentalsScreen(),
+        redirect: (_, __) => AppRoutes.orders,
       ),
     ],
   );

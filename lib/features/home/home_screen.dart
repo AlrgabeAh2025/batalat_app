@@ -19,11 +19,20 @@ import 'package:batalat_app/shared/widgets/category_icon_view.dart';
 import 'package:batalat_app/shared/widgets/loading_shimmer.dart';
 import 'package:batalat_app/shared/widgets/price_tag.dart';
 import 'package:batalat_app/shared/widgets/batalat_logo.dart';
+import 'package:batalat_app/shared/widgets/batalat_drawer.dart';
+import 'package:batalat_app/shared/widgets/pull_to_refresh.dart';
 import 'package:batalat_app/shared/widgets/rose_pattern_background.dart';
 import 'package:badges/badges.dart' as badges;
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
+
+  Future<void> _refresh(WidgetRef ref) async {
+    ref.invalidate(homeFeedProvider);
+    await awaitRefresh(() async {
+      await ref.read(homeFeedProvider.future);
+    });
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -34,9 +43,10 @@ class HomeScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: RefreshIndicator(
-        onRefresh: () async => ref.invalidate(homeFeedProvider),
+      body: PullToRefresh(
+        onRefresh: () => _refresh(ref),
         child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverAppBar(
               expandedHeight: 180,
@@ -67,6 +77,34 @@ class HomeScreen extends ConsumerWidget {
                             children: [
                               Row(
                                 children: [
+                                  Builder(
+                                    builder: (ctx) => GestureDetector(
+                                      onTap: () => mainShellScaffoldKey
+                                          .currentState
+                                          ?.openDrawer(),
+                                      child: Container(
+                                        width: 44,
+                                        height: 44,
+                                        decoration: BoxDecoration(
+                                          color: AppColors.surface,
+                                          shape: BoxShape.circle,
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: AppColors.primary
+                                                  .withValues(alpha: 0.1),
+                                              blurRadius: 10,
+                                            ),
+                                          ],
+                                        ),
+                                        child: const Icon(
+                                          Iconsax.menu_1,
+                                          color: AppColors.primary,
+                                          size: 22,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
                                   const BatalatLogo(size: 48),
                                   const SizedBox(width: 10),
                                   Column(
@@ -193,28 +231,6 @@ class HomeScreen extends ConsumerWidget {
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
                   const SizedBox(height: 12),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton.icon(
-                      onPressed: () {
-                        if (!requireAuth(
-                          context,
-                          ref,
-                          returnTo: AppRoutes.customRequestNew,
-                          message: 'سجّل الدخول لإرسال طلب مخصص',
-                        )) {
-                          return;
-                        }
-                        context.push(AppRoutes.customRequestNew);
-                      },
-                      icon: const Icon(Iconsax.edit, size: 18),
-                      label: const Text('طلب مخصص'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppColors.primary,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
                   homeAsync.when(
                     loading: () => const Column(
                       children: [
@@ -238,25 +254,30 @@ class HomeScreen extends ConsumerWidget {
                       children: [
                         _BannerCarousel(banners: feed.banners),
                         const SizedBox(height: 28),
-                        _SectionHeader(
-                          title: 'الأقسام',
-                          onSeeAll: () => context.push(AppRoutes.products),
-                        ),
-                        const SizedBox(height: 16),
-                        _CategoriesRow(categories: feed.categories),
-                        const SizedBox(height: 28),
+                        if (feed.categories.isNotEmpty) ...[
+                          _SectionHeader(
+                            title: 'الأقسام',
+                            onSeeAll: () => context.go(AppRoutes.categories),
+                          ),
+                          const SizedBox(height: 16),
+                          _CategoriesRow(categories: feed.categories),
+                          const SizedBox(height: 28),
+                        ],
                         for (final section in feed.sections) ...[
                           _SectionHeader(
-                            title: section.category.name,
-                            onSeeAll: () => context.go(
-                              AppRoutes.catalogPath(section.category.slug),
-                            ),
+                            title: section.title.isNotEmpty
+                                ? section.title
+                                : (section.category?.name ?? 'منتجات'),
+                            onSeeAll: section.category != null
+                                ? () => context.push(
+                                      '${AppRoutes.catalogPath(section.category!.slug)}?title=${Uri.encodeComponent(section.category!.name)}',
+                                    )
+                                : () => context.push(AppRoutes.products),
                           ),
                           const SizedBox(height: 16),
                           _ProductsRow(
                             products: section.products,
-                            emptyMessage:
-                                'لا توجد عناصر في «${section.category.name}» بعد',
+                            emptyMessage: 'لا توجد منتجات بعد',
                           ),
                           const SizedBox(height: 28),
                         ],
@@ -344,7 +365,6 @@ class _BannerCarousel extends StatelessWidget {
                                 errorWidget: (_, __, ___) => CategoryIconView(
                                   icon: cat.icon,
                                   size: 48,
-                                  preferEmoji: true,
                                 ),
                               ),
                             )
@@ -352,7 +372,6 @@ class _BannerCarousel extends StatelessWidget {
                             CategoryIconView(
                               icon: cat.icon,
                               size: 56,
-                              preferEmoji: true,
                             ),
                       const SizedBox(width: 16),
                       Expanded(
@@ -370,8 +389,8 @@ class _BannerCarousel extends StatelessWidget {
                             ),
                             const SizedBox(height: 10),
                             ElevatedButton(
-                              onPressed: () => context.go(
-                                AppRoutes.catalogPath(cat.slug),
+                              onPressed: () => context.push(
+                                '${AppRoutes.catalogPath(cat.slug)}?title=${Uri.encodeComponent(cat.name)}',
                               ),
                               style: ElevatedButton.styleFrom(
                                 minimumSize: const Size(100, 36),
@@ -416,7 +435,9 @@ class _CategoriesRow extends StatelessWidget {
         itemBuilder: (_, index) {
           final category = categories[index];
           return GestureDetector(
-            onTap: () => context.go(AppRoutes.catalogPath(category.slug)),
+            onTap: () => context.push(
+              '${AppRoutes.catalogPath(category.slug)}?title=${Uri.encodeComponent(category.name)}',
+            ),
             child: Container(
               width: 88,
               margin: const EdgeInsets.only(left: 10),

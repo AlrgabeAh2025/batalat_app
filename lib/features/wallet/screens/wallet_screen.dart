@@ -13,9 +13,19 @@ import 'package:batalat_app/features/wallet/providers/wallet_provider.dart';
 import 'package:batalat_app/shared/widgets/batalat_app_bar.dart';
 import 'package:batalat_app/shared/widgets/batalat_button.dart';
 import 'package:batalat_app/shared/widgets/empty_state.dart';
+import 'package:batalat_app/shared/widgets/pull_to_refresh.dart';
 
 class WalletScreen extends ConsumerWidget {
   const WalletScreen({super.key});
+
+  Future<void> _refresh(WidgetRef ref) async {
+    ref.invalidate(walletProvider);
+    ref.invalidate(walletTransactionsProvider);
+    await awaitRefresh(() async {
+      await ref.read(walletProvider.future);
+      await ref.read(walletTransactionsProvider.future);
+    });
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -25,13 +35,10 @@ class WalletScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: const BatalatAppBar(title: 'محفظتي'),
-      body: RefreshIndicator(
-        color: AppColors.primary,
-        onRefresh: () async {
-          ref.invalidate(walletProvider);
-          ref.invalidate(walletTransactionsProvider);
-        },
+      body: PullToRefresh(
+        onRefresh: () => _refresh(ref),
         child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(AppConstants.screenPadding),
           children: [
             walletAsync.when(
